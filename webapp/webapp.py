@@ -39,7 +39,7 @@ if "has_shown_banner" not in st.session_state:
 # Only show balloons and toast if they haven't been shown in this session
 if not st.session_state["has_shown_banner"]:
     # st.balloons()
-    st.toast("Version 0.1.0 Released!!", icon="🎉")
+    st.toast("UMUD Challenge is active!!", icon="🎉")
     st.session_state["has_shown_banner"] = True
 
 st.markdown(
@@ -59,7 +59,7 @@ with st.sidebar:
             "Home",
             "Datasets",
             "Database",
-            "Challenge",
+            "Challenge ✨",
             "Benchmarks",
             "Image Analysis",
             "Contributing",
@@ -126,7 +126,7 @@ if selected_tab == "Home":
     # )
     st.markdown(
         """
-        *Preprint:* [![DOI:10.31219/osf.io/syr4z](https://zenodo.org/badge/DOI/10.31219/osf.io/syr4z.svg)](https://doi.org/10.31219/osf.io/syr4z)
+        **Publication:** [![DOI:0.1186/s12880-026-02170-0](https://zenodo.org/badge/DOI/10.1186/s12880-026-02170-0.svg)](https://doi.org/10.1186/s12880-026-02170-0)
         
         The **UMUD repository** is a centralized platform for musculoskeletal ultrasonography dataset metadata. The database includes B-mode images, videos and volumetric data, with a focus on providing labeled datasets for training and research purposes.
         
@@ -402,7 +402,7 @@ elif selected_tab == "Database":
         display_charts(df, selected_plots)
 
 
-elif selected_tab == "Challenge":
+elif selected_tab == "Challenge ✨":
 
     # Horizontal line separator
     st.markdown("---")
@@ -413,17 +413,7 @@ elif selected_tab == "Challenge":
     <div style="padding: 10px; border: 2px solid #008080; border-radius: 10px; border-width: 3px; background-color: #ccdfe1;">
         <h4 style="text-align: center;">🏆 UMUD Community Challenge</h4>
         <p style="text-align: center;">
-        <strong>⚠️ The challenge is currently not active ⚠️</strong>
-        </p>
-        <p style="text-align: center;">
-        This challenge will be designed to engage the community in developing models or 
-        analysis scripts to predict muscle geometrical parameters in an unseen test set of lower limb ultrasonography images. Participants are encouraged to use any tools or 
-        techniques at their disposal to create the best predictions possible.
-        </p>
-        <p style="text-align: center;">
-        The format of the challenge is inspired by <a href="https://www.kaggle.com/competitions" target="_blank">Kaggle</a> competitions, where participants can submit their data analysis predictions, 
-        and a leaderboard will track the top results.
-        </p>
+        <strong>🚀✨ The challenge is active ✨🚀</strong>
     </div>
     """,
         unsafe_allow_html=True,
@@ -431,109 +421,37 @@ elif selected_tab == "Challenge":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # st.subheader("Challenge Outline")
+    st.markdown("---")
+    
+    st.subheader("Challenge Information")
 
-    # st.write("...TBD...")
+    st.markdown(
+    """
+    <div>
+        <p style="text-align: left;">
+        The UMUD Challenge: Muscle Architecture in Ultrasound Data is designed to engage the community in developing models or 
+        analysis scripts to predict muscle geometrical parameters in an unseen test set of lower limb ultrasonography images. Participants are encouraged to use any tools or 
+        techniques at their disposal to create the best predictions possible.
+        </p>
+        <p style="text-align: left;">
+        Detailed information about the challenge can be found on the official 
+        <a href="https://www.kaggle.com/competitions/umud-challenge-muscle-architecture-in-ultrasound-data" target="_blank">Challenge Page</a>, 
+        where participants can submit their data analysis predictions, 
+        and a leaderboard will track the top results. The main metric of the challenge is the 
+        <a href="https://www.kaggle.com/code/paulritsche/umud-score" target="_blank">UMUD Score</a>. The latest possible date for submission is 15.11.2026, and the winners will be announced in November 2026.
+        </p>
+        <p style="text-align: left;">
+        <strong>Prizes:</strong> The top three winners will receive a cash prize of 3000€, 1500€, and 500€ respectively. 
+        </p>
+        <p style="text-align: left;">
+        ✅ We look forward to your contribution! 
+        <p> 
+    </div>
+    """,
+    unsafe_allow_html=True
+    )
 
-    # st.subheader("How to participate")
-    # st.write(
-    #     """
-    #     1. **Download the Dataset**: Download the training and test datasets from the [UMUD Repository](#).
-    #     2. **Develop Your Analysis Code**: Use the training dataset to develop and train your predictive models/code.
-    #     3. **Make Predictions**: Apply your model/analysis script to the test dataset to make predictions on muscle parameters.
-    #     4. **Submit Your Predictions and Code**: Submit your predictions using the submission file below and include a link to your trained code or models for evaluation.
-    #     5. **Check the Leaderboard**: Track your performance on the leaderboard and see how you rank against other participants.
-    #     6. **Win the Challenge!**: If you are among the top 3 participants, there may be (as of yet undetermined) prizes!
-    #     """
-    # )
-
-    # st.subheader("Challenge Instructions")
-    # instructions = str(Path(__file__).with_name("webapp_files"))
-    # instructions_path = instructions + "/challenge_instructions.txt"
-    # if os.path.exists(instructions_path):
-    #     with open(instructions_path, "r") as file:
-    #         instructions_content = file.read()
-    #     st.download_button(
-    #         label="📜 Download Challenge Instructions",
-    #         data=instructions_content,
-    #         file_name="challenge_instructions.txt",
-    #         mime="text/plain",
-    #     )
-
-    # st.subheader("Sample Submission File")
-    # sample_submission_path = "templates/sample_submission.csv"
-    # if os.path.exists(sample_submission_path):
-    #     with open(sample_submission_path, "r") as file:
-    #         sample_submission_content = file.read()
-    #     st.download_button(
-    #         label="📄 Download Sample Submission File",
-    #         data=sample_submission_content,
-    #         file_name="sample_submission.csv",
-    #         mime="text/csv",
-    #     )
-
-    # st.subheader("Scoreboard")
-    # scoreboard_df = (
-    #     load_scoreboard()
-    # )  # Define this function to load the scoreboard data
-    # display_scoreboard(scoreboard_df)  # Define this function to display the scoreboard
-
-    # st.subheader("Submit Your Results")
-    # st.write(
-    #     """
-    #     Please submit your prediction results using the form below. Ensure that your submission file follows the specified format
-    #     outlined in the challenge instructions and matches the sample submission file. Since UMUD is devised according to the open science principles,
-    #     we encourage you to submit a link to your models and code for evaluation as well. The link will be listed in the scoreboard as well.
-    #     """
-    # )
-
-    # prediction_file = st.file_uploader(
-    #     "Choose a CSV file for predictions", type=["csv"], accept_multiple_files=False
-    # )
-
-    # if prediction_file:
-    #     filenames = [prediction_file.name]
-    #     if code_file:
-    #         filenames.append(code_file.name)
-    #     st.write(f"Files ready for submission: {', '.join(filenames)}")
-
-    #     # Validate the uploaded prediction file
-    #     try:
-    #         df = pd.read_csv(prediction_file)
-    #         # Check if required columns exist
-    #         required_columns = [
-    #             "_id",
-    #             "_fascicle_length",
-    #             "_pennation_angle",
-    #             "_muscle_thickness",
-    #         ]
-    #         if all(column in df.columns for column in required_columns):
-    #             st.success(
-    #                 "Prediction file format is correct and ready for submission!"
-    #             )
-    #         else:
-    #             st.error(
-    #                 f"Prediction file is missing required columns. Expected columns: {required_columns}"
-    #             )
-
-    #         st.subheader("Submit via Email")
-    #         recipient_email = "umudrepository@gmail.com"
-    #         subject = "UMUD Challenge Submission"
-    #         body = "Please find attached my submission for the UMUD Challenge."
-
-    #         mailto_link = create_email_link(
-    #             subject, body, recipient_email, filenames
-    #         )  # Define this function to create mailto link
-    #         st.markdown(f"[Send Email](mailto:{mailto_link})", unsafe_allow_html=True)
-
-    #     except Exception as e:
-    #         st.error(f"An error occurred while processing the file: {e}")
-
-    # st.write(
-    #     """
-    #     Alternatively, you can send your submission files directly to [umudrepository@gmail.com](mailto:umudrepository@gmail.com).
-    #     """
-    # )
+    
 
 elif selected_tab == "Benchmarks":
 
