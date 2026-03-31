@@ -441,7 +441,7 @@ elif selected_tab == "Challenge ✨":
         <a href="https://www.kaggle.com/code/paulritsche/umud-score" target="_blank">UMUD Score</a>. The latest possible date for submission is 15.11.2026, and the winners will be announced in November 2026.
         </p>
         <p style="text-align: left;">
-        <strong>Prizes:</strong> The top three winners will receive a cash prize of 3000€, 1500€, and 500€ respectively. 
+        <strong>Prizes:</strong> The top three winners will receive a cash prize of 1500CHF, 1000CHF and 500CHF respectively. 
         </p>
         <p style="text-align: left;">
         ✅ We look forward to your contribution! 
