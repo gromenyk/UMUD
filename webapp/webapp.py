@@ -20,6 +20,7 @@ from helpers.pydantic_models import DatasetMetadata
 from helpers.footer import add_footer
 import numpy as np
 import seaborn as sns
+import shutil
 
 
 # TODO complete benchmark Tab
@@ -31,6 +32,14 @@ page_icon = ":mechanical_arm:"
 layout = "centered"
 # --------------------
 st.set_page_config(page_title=page_title, page_icon=page_icon, layout=layout)
+
+
+# ---- Admin authentication -----
+
+if "admin_mode" not in st.session_state:
+    st.session_state.admin_mode = False
+
+# -------------------------------
 
 # Initialize session state for balloons and toast
 if "has_shown_banner" not in st.session_state:
@@ -53,35 +62,100 @@ with st.sidebar:
     st.image(logo_image_path + "/logo.png", use_column_width=True)
 
     "---"
+
+    options = [
+        "Home",
+        "Datasets",
+        "Database",
+        "Challenge ✨",
+        "Benchmarks",
+        "Image Analysis",
+        "Contributing",
+        "About Us",
+    ]
+
+    icons = [
+        "house",
+        "file-earmark-bar-graph",
+        "archive",
+        "trophy",
+        "stars",
+        "magic",
+        "person-hearts",
+        "info-circle",
+    ]
+
+    # ------------------------------------------------------------------
+    # Legacy Admin Panel (temporarily disabled)
+    #
+    # Benchmark administration has been moved to an offline script.
+    # Uncomment the lines below to restore the Streamlit admin interface.
+    # ------------------------------------------------------------------
+
+    # if st.session_state.admin_mode:
+    #
+    #     options.append("Admin")
+    #     icons.append("shield-lock")
+
     selected_tab = option_menu(
         "",
-        options=[
-            "Home",
-            "Datasets",
-            "Database",
-            "Challenge ✨",
-            "Benchmarks",
-            "Image Analysis",
-            "Contributing",
-            "About Us",
-        ],
-        icons=[
-            "house",
-            "file-earmark-bar-graph",
-            "archive",
-            "trophy",
-            "stars",
-            "magic",
-            "person-hearts",
-            "info-circle",
-        ],
-        default_index=0,
+        options=options,
+        icons=icons,
+        manual_select=options.index(
+            st.session_state.get(
+                "selected_tab",
+                "Home"
+            )
+        ),
         orientation="vertical",
     )
 
+    st.session_state.selected_tab = selected_tab
+
     "---"
+
     # This adds the footer to the sidebar only.
     add_footer()
+
+    # =============================================================================
+    # Legacy Admin Login
+    #
+    # Disabled because benchmark review is now handled offline.
+    # =============================================================================
+
+    # with st.expander(
+    #     "⚙ Admin Panel",
+    #     expanded=st.session_state.admin_mode
+    # ):
+
+    #     if not st.session_state.admin_mode:
+
+    #         admin_password = st.text_input(
+    #             "Password",
+    #             type="password"
+    #         )
+
+    #         if admin_password == st.secrets["ADMIN_PASSWORD"]:
+
+    #             if not st.session_state.admin_mode:
+
+    #                 st.session_state.admin_mode = True
+
+    #                 st.session_state.selected_tab = "Admin"
+
+    #                 st.rerun()
+
+    #     else:
+
+    #         st.success("Admin mode enabled")
+
+    #         if st.button("Logout"):
+
+    #             st.session_state.admin_mode = False
+
+    #             st.session_state.selected_tab = "Home"
+
+    #             st.rerun()
 
 if selected_tab == "Home":
     # Welcome Section
@@ -531,14 +605,355 @@ elif selected_tab == "Benchmarks":
     st.markdown("---")
 
     st.markdown(
-        """
-        ### 📊 Performance Metrics
-        Benchmarking and scoring performance is essential for comparability, transparency and reproducibility.
-        By expanding the fields below, you can take a detailed look at the model/algorithm performance on our provided training and expert analysed test images.
-        
-        Under construction 🛠...
-        """
+    """
+    ### 📊 Performance Metrics
+
+    Benchmarking and scoring performance is essential for comparability, transparency and reproducibility.
+
+    By expanding the fields below, you can take a detailed look at the model/algorithm performance on our provided training and expert analysed test images.
+
+    Under construction 🛠...
+
+    **Please select the benchmark task you want to compare:**
+    """
     )
+
+    benchmark_option = st.selectbox(
+        "",
+        [
+            "Select a benchmark task...",
+            "Muscle Geometry - Static Architecture",
+            "Dynamic Muscle Architecture",
+            "ACSA Quantification",
+        ],
+        label_visibility="collapsed"
+    )
+
+    if benchmark_option == "Muscle Geometry - Static Architecture":
+
+        st.markdown(
+            """
+            ### Muscle Geometry Benchmark
+
+            This benchmark evaluates:
+            - Fascicle Length (FL)
+            - Muscle Thickness (MT)
+            - Pennation Angle (PA)
+
+            The benchmark includes 35 expert-annotated ultrasound images analysed by seven independent expert raters.
+            """
+        )
+
+        st. markdown("##### Benchmark Submission")
+
+        st.markdown(
+            """
+            Upload your model predictions in CSV format to compare them against the expert benchmark dataset.
+            """
+        )
+
+        # -----------------------------
+        # Submission Template
+        # -----------------------------
+
+        benchmark_path = (
+            Path(__file__).parent
+            / "benchmark_data"
+            / "35_images_benchmark_summary.csv"
+        )
+
+        benchmark_df = pd.read_csv(benchmark_path, sep=";")
+
+        template_df = pd.DataFrame(
+            {
+                "image_id": benchmark_df["image_id"],
+                "fl_mm": np.nan,
+                "mt_mm": np.nan,
+                "pa_deg": np.nan,
+            }
+        )
+
+        csv = template_df.to_csv(index=False).encode("utf-8")
+
+        st.download_button(
+            label="📥 Download Submission Template",
+            data=csv,
+            file_name="muscle_architecture_benchmark_template.csv",
+            mime="text/csv",
+        )
+
+        model_name = st.text_input(
+            "Model Name (Required)",
+            placeholder="e.g. DL_Track",
+        )
+
+        uploaded_file = st.file_uploader(
+            "Submit Your Own Results",
+            type=["csv"]
+        )
+
+        if uploaded_file is not None:
+
+            if not model_name.strip():
+                st.error("Please enter a model name")
+
+            else:
+
+                submission_df = pd.read_csv(uploaded_file)
+
+                # -----------------------------
+                # Create local folder if needed
+                # -----------------------------
+
+                benchmark_folder = Path("benchmark_data/submissions")
+                benchmark_folder.mkdir(exist_ok=True)
+
+                # -----------------------------
+                # Save uploaded file locally
+                # -----------------------------
+
+                save_path = benchmark_folder / f"{model_name}.csv"
+
+                submission_df.to_csv(save_path, index=False)
+
+                # -----------------------------
+                # Save metadata
+                # -----------------------------
+
+                metadata = {
+                    "model_name": model_name,
+                    "benchmark_task": "Muscle Geometry - Static Architecture",
+                    "submission_date": pd.Timestamp.now().strftime(
+                        "%Y-%m-%d %H:%M"
+                    ),
+                    "status": "pending",
+                }
+
+                metadata_path = (
+                    benchmark_folder
+                    / f"{model_name}_metadata.json"
+                )
+
+                with open(metadata_path, "w") as f:
+
+                    json.dump(metadata, f, indent=4)
+
+                st.success("Thank you for your submission. ")
+
+        st.markdown("---")
+
+        # -----------------------------
+        # Global Benchmark Summary
+        # -----------------------------
+
+        st.markdown("### Global Benchmark Performance")
+
+        summary_df = pd.DataFrame(
+            {
+                "Method": [
+                    "Expert Inter-rater",
+                    "DL_Track",
+                    "DummyNet v1",
+                ],
+                "VALUE"
+                "FL MAE (mm)": [
+                    "-",
+                    2.1,
+                    1.8,
+                ],
+                "PA MAE (°)": [
+                    "-",
+                    2.4,
+                    1.9,
+                ],
+                "MT MAE (mm)": [
+                    "-",
+                    0.5,
+                    0.4,
+                ],
+            }
+        )
+
+        st.dataframe(summary_df, use_container_width=True)
+
+        st.caption(
+            """
+            FL = Fascicle Length | PA = Pennation Angle | MT = Muscle Thickness
+            
+            MAE = Mean Absolute Error relative to expert annotations.
+            """
+        )
+
+        # -----------------------------
+        # Image-wise Comparison
+        # -----------------------------
+
+        benchmark_folder = Path("benchmark_data/approved_submissions")
+
+        model_files = list(benchmark_folder.glob("*.csv"))
+
+        available_models = [file.stem for file in model_files]
+
+        selected_models = st.multiselect(
+            "Select models to compare",
+            available_models
+        )
+
+        with st.expander("🔍 View Image-wise Benchmark Analysis"):
+
+            # -----------------------------
+            # Create expert display columns
+            # -----------------------------
+
+            benchmark_df["FL Experts"] = (
+                benchmark_df["AVG_FL"].round(1).astype(str)
+                + " ± "
+                + benchmark_df["SD_FL"].round(1).astype(str)
+            )
+
+            benchmark_df["MT Experts"] = (
+                benchmark_df["AVG_MT"].round(1).astype(str)
+                + " ± "
+                + benchmark_df["SD_MT"].round(1).astype(str)
+            )
+
+            benchmark_df["PA Experts"] = (
+                benchmark_df["AVG_PA"].round(1).astype(str)
+                + " ± "
+                + benchmark_df["SD_PA"].round(1).astype(str)
+            )
+
+            # -----------------------------
+            # Build display dataframe
+            # -----------------------------
+
+            display_df = pd.DataFrame()
+
+            def highlight_metric_columns(col):
+
+                if "FL" in col.name:
+                    return [
+                        "background-color: #f2f2f2"
+                    ] * len(col)
+
+                elif "MT" in col.name:
+                    return [
+                        "background-color: #ffffff"
+                    ] * len(col)
+
+                elif "PA" in col.name:
+                    return [
+                        "background-color: #e8e8e8"
+                    ] * len(col)
+
+                else:
+                    return [""] * len(col)
+
+            display_df["image_id"] = benchmark_df["image_id"]
+
+            # -----------------------------
+            # FL comparison
+            # -----------------------------
+
+            display_df["FL Experts"] = benchmark_df["FL Experts"]
+
+            for model_name in selected_models:
+
+                model_path = benchmark_folder / f"{model_name}.csv"
+
+                model_df = pd.read_csv(model_path, sep=";")
+
+                display_df[f"{model_name} FL"] = (
+                    model_df["fl_mm"]
+                    .round(1)
+                    .fillna("-")
+                )
+
+                display_df[f"{model_name} FL MAE"] = (
+                    (model_df["fl_mm"] - benchmark_df["AVG_FL"])
+                    .abs()
+                    .round(2)
+                    .fillna("-")
+                )
+            
+
+            # -----------------------------
+            # MT comparison
+            # -----------------------------
+
+            display_df["MT Experts"] = benchmark_df["MT Experts"]
+
+            for model_name in selected_models:
+
+                model_path = benchmark_folder / f"{model_name}.csv"
+
+                model_df = pd.read_csv(model_path, sep=";")
+
+                display_df[f"{model_name} MT"] = (
+                    model_df["mt_mm"]
+                    .round(1)
+                    .fillna("-")
+                )
+
+                display_df[f"{model_name} MT MAE"] = (
+                    (model_df["mt_mm"] - benchmark_df["AVG_MT"])
+                    .abs()
+                    .round(2)
+                    .fillna("-")
+                )
+
+            # -----------------------------
+            # PA comparison
+            # -----------------------------
+
+            display_df["PA Experts"] = benchmark_df["PA Experts"]
+
+            for model_name in selected_models:
+
+                model_path = benchmark_folder / f"{model_name}.csv"
+
+                model_df = pd.read_csv(model_path, sep=";")
+
+                display_df[f"{model_name} PA"] = (
+                    model_df["pa_deg"]
+                    .round(1)
+                    .fillna("-")
+                )
+
+                display_df[f"{model_name} PA MAE"] = (
+                    (model_df["pa_deg"] - benchmark_df["AVG_PA"])
+                    .abs()
+                    .round(2)
+                    .fillna("-")
+                )
+
+            # -----------------------------
+            # Display table
+            # -----------------------------
+
+            styled_df = (
+                display_df.style
+                .apply(highlight_metric_columns)
+                .set_properties(
+                    **{
+                        "text-align": "center"
+                    }
+                )
+                .set_table_styles(
+                    [
+                        {
+                            "selector": "th",
+                            "props": [("text-align", "center")]
+                        }
+                    ]
+                )
+                .format(precision=2)
+            )
+
+            st.dataframe(
+                styled_df,
+                use_container_width=True
+            )   
 
     # with st.expander("**🤗 Algorithm Training Metrics**"):
 
@@ -572,6 +987,8 @@ elif selected_tab == "Benchmarks":
     #     )
 
     #     display_comparability_statistics()
+
+    
 
 elif selected_tab == "Image Analysis":
     st.markdown("---")
@@ -879,3 +1296,431 @@ elif selected_tab == "About Us":
         If you want to know about the future of UMUD, you can check out our roadmap below."""
     )
     st.image(images + "/roadmap_v0.1.0.png", caption="UMUD v0.1.0 Roadmap", width=500)
+
+###############################################################################
+# LEGACY STREAMLIT ADMIN PANEL
+#
+# This interface has been replaced by an offline review script.
+#
+# The implementation is intentionally preserved because it already
+# contains:
+#
+# - Preview
+# - Metric calculation
+# - Approval
+# - Rejection
+# - Image-wise comparison
+#
+###############################################################################
+
+# elif selected_tab == "Admin":
+
+#     st.markdown("---")
+
+#     st.title("Benchmark Admin Panel")
+
+#     st.markdown(
+#         """
+#         Here you can review and approve Benchmark submissions befores they are pusblished on the UMUD benchamrk tables. 
+#         """
+#     )
+
+#     st.markdown("---")
+
+#     # -----------------------------
+#     # Pending submissions folder
+#     # -----------------------------
+
+#     pending_folder = Path(
+#         "benchmark_data/submissions"
+#     )
+
+#     # -----------------------------
+#     # Get metadata files
+#     # -----------------------------
+
+#     metadata_files = list(
+#         pending_folder.glob("*_metadata.json")
+#     )
+
+#     admin_rows = []
+
+#     # -----------------------------
+#     # Build admin table
+#     # -----------------------------
+
+#     for metadata_file in metadata_files:
+
+#         with open(metadata_file, "r") as f:
+
+#             metadata = json.load(f)
+
+#         admin_rows.append(
+#             {
+#                 "Submission Date": metadata["submission_date"],
+#                 "Model Name": metadata["model_name"],
+#                 "Benchmark Task": metadata["benchmark_task"],
+#                 "Status": metadata.get("status", "pending")
+#             }
+#         )
+
+#     # -----------------------------
+#     # No submissions
+#     # -----------------------------
+
+#     if len(admin_rows) == 0:
+
+#         st.info("No pending submissions.")
+
+#     # -----------------------------
+#     # Display submissions
+#     # -----------------------------
+
+#     else:
+
+#         for row in admin_rows:
+
+#             st.markdown("---")
+
+#             if row["Status"] == "pending":
+#                 st.warning("⏳ Pending")
+
+#             elif row["Status"] == "approved":
+#                 st.success("✅ Approved")
+
+#             elif row["Status"] == "rejected":
+#                 st.error("❌ Rejected")
+
+#             col1, col2, col3, col4, col5, col6 = st.columns(
+#                 [2, 2, 2, 1.5, 1.5, 1.5]
+#             )
+
+#             # -----------------------------
+#             # Submission info
+#             # -----------------------------
+
+#             with col1:
+
+#                 st.markdown(
+#                     f"**Date**  \n{row['Submission Date']}"
+#                 )
+
+#             with col2:
+
+#                 st.markdown(
+#                     f"**Model**  \n{row['Model Name']}"
+#                 )
+
+#             with col3:
+
+#                 st.markdown(
+#                     f"**Benchmark**  \n{row['Benchmark Task']}"
+#                 )
+
+#             # -----------------------------
+#             # Preview button
+#             # -----------------------------
+
+#             with col4:
+
+#                 preview_clicked = st.button(
+#                     "Preview",
+#                     key=f"preview_{row['Model Name']}"
+#                 )
+
+#             # -----------------------------
+#             # Approve button
+#             # -----------------------------
+
+#             with col5:
+
+#                 approve_clicked = st.button(
+#                     "Approve",
+#                     key=f"approve_{row['Model Name']}"
+#                 )
+
+#             # -----------------------------
+#             # Reject button
+#             # -----------------------------
+
+#             with col6:
+
+#                 rejected_clicked = st.button(
+#                     "Reject",
+#                     key=f"reject_{row['Model Name']}"
+#                 )
+
+
+#             # -----------------------------
+#             # Preview submission
+#             # -----------------------------
+
+#             if preview_clicked:
+
+#                 csv_path = (
+#                     pending_folder
+#                     / f"{row['Model Name']}.csv"
+#                 )
+
+#                 # -----------------------------
+#                 # Load submission
+#                 # -----------------------------
+
+#                 submission_df = pd.read_csv(csv_path, sep=";")
+
+#                 # -----------------------------
+#                 # Load benchmark
+#                 # -----------------------------
+
+#                 benchmark_path = (
+#                     Path(__file__).parent
+#                     / "benchmark_data"
+#                     / "35_images_benchmark_summary.csv"
+#                 )
+
+#                 benchmark_df = pd.read_csv(
+#                     benchmark_path,
+#                     sep=";"
+#                 )
+
+#                 # -----------------------------
+#                 # Merge prediction + benchmark
+#                 # -----------------------------
+
+#                 merged_df = submission_df.merge(
+#                     benchmark_df,
+#                     on="image_id",
+#                     how="left"
+#                 )
+
+#                 # -----------------------------
+#                 # Calculate MAE
+#                 # -----------------------------
+
+#                 fl_mae = (
+#                     merged_df["fl_mm"]
+#                     .sub(merged_df["AVG_FL"])
+#                     .abs()
+#                     .mean()
+#                 )
+
+#                 mt_mae = (
+#                     merged_df["mt_mm"]
+#                     .sub(merged_df["AVG_MT"])
+#                     .abs()
+#                     .mean()
+#                 )
+
+#                 pa_mae = (
+#                     merged_df["pa_deg"]
+#                     .sub(merged_df["AVG_PA"])
+#                     .abs()
+#                     .mean()
+#                 )
+
+#                 # -----------------------------
+#                 # Display metrics
+#                 # -----------------------------
+
+#                 st.markdown("### Global Performance")
+
+#                 metric_col1, metric_col2, metric_col3 = st.columns(3)
+
+#                 with metric_col1:
+
+#                     st.metric(
+#                         "FL MAE (mm)",
+#                         round(fl_mae, 2)
+#                     )
+
+#                 with metric_col2:
+
+#                     st.metric(
+#                         "MT MAE (mm)",
+#                         round(mt_mae, 2)
+#                     )
+
+#                 with metric_col3:
+
+#                     st.metric(
+#                         "PA MAE (°)",
+#                         round(pa_mae, 2)
+#                     )
+
+#                 st.markdown("---")
+
+#                 st.markdown("### Image-wise Comparison")
+
+#                 # -----------------------------
+#                 # Create expert display columns
+#                 # -----------------------------
+
+#                 benchmark_df["FL Experts"] = (
+#                     benchmark_df["AVG_FL"].round(1).astype(str)
+#                     + " ± "
+#                     + benchmark_df["SD_FL"].round(1).astype(str)
+#                 )
+
+#                 benchmark_df["MT Experts"] = (
+#                     benchmark_df["AVG_MT"].round(1).astype(str)
+#                     + " ± "
+#                     + benchmark_df["SD_MT"].round(1).astype(str)
+#                 )
+
+#                 benchmark_df["PA Experts"] = (
+#                     benchmark_df["AVG_PA"].round(1).astype(str)
+#                     + " ± "
+#                     + benchmark_df["SD_PA"].round(1).astype(str)
+#                 )
+
+#                 preview_df = pd.DataFrame()
+
+#                 preview_df["image_id"] = benchmark_df["image_id"]
+
+#                 preview_df["FL Experts"] = benchmark_df["FL Experts"]
+
+#                 preview_df["Prediction FL"] = (
+#                     merged_df["fl_mm"]
+#                     .round(2)
+#                 )
+
+#                 preview_df["FL MAE"] = (
+#                     (
+#                         merged_df["fl_mm"]
+#                         - benchmark_df["AVG_FL"]
+#                     )
+#                     .abs()
+#                     .round(2)
+#                 )
+
+#                 preview_df["MT Experts"] = benchmark_df["MT Experts"]
+
+#                 preview_df["Prediction MT"] = (
+#                     merged_df["mt_mm"]
+#                     .round(2)
+#                 )
+
+#                 preview_df["MT MAE"] = (
+#                     (
+#                         merged_df["mt_mm"]
+#                         - benchmark_df["AVG_MT"]
+#                     )
+#                     .abs()
+#                     .round(2)
+#                 )
+
+#                 preview_df["PA Experts"] = benchmark_df["PA Experts"]
+
+#                 preview_df["Prediction PA"] = (
+#                     merged_df["pa_deg"]
+#                     .round(2)
+#                 )
+
+#                 preview_df["PA MAE"] = (
+#                     (
+#                         merged_df["pa_deg"]
+#                         - benchmark_df["AVG_PA"]
+#                     )
+#                     .abs()
+#                     .round(2)
+#                 )
+
+#                 # -----------------------------
+#                 # Zebra styling
+#                 # -----------------------------
+
+#                 def highlight_metric_columns(col):
+
+#                     if "FL" in col.name:
+
+#                         return [
+#                             "background-color: #f2f2f2"
+#                         ] * len(col)
+
+#                     elif "MT" in col.name:
+
+#                         return [
+#                             "background-color: #ffffff"
+#                         ] * len(col)
+
+#                     elif "PA" in col.name:
+
+#                         return [
+#                             "background-color: #e8e8e8"
+#                         ] * len(col)
+
+#                     else:
+
+#                         return [""] * len(col)
+
+#                 styled_preview_df = (
+#                     preview_df.style
+#                     .apply(highlight_metric_columns)
+#                     .set_properties(
+#                         **{
+#                             "text-align": "center"
+#                         }
+#                     )
+#                     .set_table_styles(
+#                         [
+#                             {
+#                                 "selector": "th",
+#                                 "props": [("text-align", "center")]
+#                             }
+#                         ]
+#                     )
+#                 )
+
+#                 st.dataframe(
+#                     styled_preview_df,
+#                     use_container_width=True
+#                 )
+                                
+
+#             # -----------------------------
+#             # Approve submission
+#             # -----------------------------
+
+#             if approve_clicked:
+
+#                 approved_folder = Path(
+#                     "benchmark_data/approved_submissions"
+#                 )
+
+#                 approved_folder.mkdir(exist_ok=True)
+
+#                 # CSV
+#                 source_csv = (
+#                     pending_folder
+#                     / f"{row['Model Name']}.csv"
+#                 )
+
+#                 destination_csv = (
+#                     approved_folder
+#                     / f"{row['Model Name']}.csv"
+#                 )
+
+#                 shutil.move(
+#                     source_csv,
+#                     destination_csv
+#                 )
+
+#                 # Actualizar metadata
+#                 metadata_path = (
+#                     pending_folder
+#                     / f"{row['Model Name']}_metadata.json"
+#                 )
+
+#                 with open(metadata_path, "r") as f:
+#                     metadata = json.load(f)
+
+#                 metadata["status"] = "approved"
+
+#                 with open(metadata_path, "w") as f:
+#                     json.dump(metadata, f, indent=4)
+
+#                 st.success(
+#                     f"{row['Model Name']} approved."
+#                 )
+
+#                 st.rerun()
