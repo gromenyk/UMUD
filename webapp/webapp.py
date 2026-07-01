@@ -14,7 +14,12 @@ from helpers.display_functions import (
     display_training_metrics,
     display_data_warning,
     display_comparability_statistics,
-)
+    highlight_metric_columns
+    )
+from benchmark_admin.review_tools import (
+    build_web_imagewise_comparison,
+    build_global_summary
+    )
 from helpers.data_tools import *
 from helpers.pydantic_models import DatasetMetadata
 from helpers.footer import add_footer
@@ -748,40 +753,87 @@ elif selected_tab == "Benchmarks":
 
         st.markdown("### Global Benchmark Performance")
 
-        summary_df = pd.DataFrame(
-            {
-                "Method": [
-                    "Expert Inter-rater",
-                    "DL_Track",
-                    "DummyNet v1",
-                ],
-                "VALUE"
-                "FL MAE (mm)": [
-                    "-",
-                    2.1,
-                    1.8,
-                ],
-                "PA MAE (°)": [
-                    "-",
-                    2.4,
-                    1.9,
-                ],
-                "MT MAE (mm)": [
-                    "-",
-                    0.5,
-                    0.4,
-                ],
-            }
-        )
-
-        st.dataframe(summary_df, use_container_width=True)
-
         st.caption(
             """
-            FL = Fascicle Length | PA = Pennation Angle | MT = Muscle Thickness
-            
-            MAE = Mean Absolute Error relative to expert annotations.
+            Mean Absolute Error (MAE) relative to expert consensus.
             """
+        )
+
+        summary_df = build_global_summary()
+
+        # -----------------------------
+        # Fascicle Length
+        # -----------------------------
+
+        st.markdown("#### Fascicle Length")
+
+        fl_ranking = (
+            summary_df[["Model", "FL MAE (mm)"]]
+            .sort_values("FL MAE (mm)")
+            .reset_index(drop=True)
+        )
+
+        fl_ranking.index += 1
+        fl_ranking = (
+            fl_ranking
+            .rename_axis("Rank")
+            .reset_index()
+        )
+
+        st.dataframe(
+            fl_ranking,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # -----------------------------
+        # Muscle Thickness
+        # -----------------------------
+
+        st.markdown("#### Muscle Thickness")
+
+        mt_ranking = (
+            summary_df[["Model", "MT MAE (mm)"]]
+            .sort_values("MT MAE (mm)")
+            .reset_index(drop=True)
+        )
+
+        mt_ranking.index += 1
+        mt_ranking = (
+            mt_ranking
+            .rename_axis("Rank")
+            .reset_index()
+        )
+
+        st.dataframe(
+            mt_ranking,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # -----------------------------
+        # Pennation Angle
+        # -----------------------------
+
+        st.markdown("#### Pennation Angle")
+
+        pa_ranking = (
+            summary_df[["Model", "PA MAE (°)"]]
+            .sort_values("PA MAE (°)")
+            .reset_index(drop=True)
+        )
+
+        pa_ranking.index += 1
+        pa_ranking = (
+            pa_ranking
+            .rename_axis("Rank")
+            .reset_index()
+        )
+
+        st.dataframe(
+            pa_ranking,
+            use_container_width=True,
+            hide_index=True
         )
 
         # -----------------------------
@@ -799,133 +851,15 @@ elif selected_tab == "Benchmarks":
             available_models
         )
 
-        with st.expander("🔍 View Image-wise Benchmark Analysis"):
+        with st.expander("🔍 View Image-Wise Benchmark Analysis"):
 
             # -----------------------------
             # Create expert display columns
             # -----------------------------
 
-            benchmark_df["FL Experts"] = (
-                benchmark_df["AVG_FL"].round(1).astype(str)
-                + " ± "
-                + benchmark_df["SD_FL"].round(1).astype(str)
+            display_df = build_web_imagewise_comparison(
+                selected_models
             )
-
-            benchmark_df["MT Experts"] = (
-                benchmark_df["AVG_MT"].round(1).astype(str)
-                + " ± "
-                + benchmark_df["SD_MT"].round(1).astype(str)
-            )
-
-            benchmark_df["PA Experts"] = (
-                benchmark_df["AVG_PA"].round(1).astype(str)
-                + " ± "
-                + benchmark_df["SD_PA"].round(1).astype(str)
-            )
-
-            # -----------------------------
-            # Build display dataframe
-            # -----------------------------
-
-            display_df = pd.DataFrame()
-
-            def highlight_metric_columns(col):
-
-                if "FL" in col.name:
-                    return [
-                        "background-color: #f2f2f2"
-                    ] * len(col)
-
-                elif "MT" in col.name:
-                    return [
-                        "background-color: #ffffff"
-                    ] * len(col)
-
-                elif "PA" in col.name:
-                    return [
-                        "background-color: #e8e8e8"
-                    ] * len(col)
-
-                else:
-                    return [""] * len(col)
-
-            display_df["image_id"] = benchmark_df["image_id"]
-
-            # -----------------------------
-            # FL comparison
-            # -----------------------------
-
-            display_df["FL Experts"] = benchmark_df["FL Experts"]
-
-            for model_name in selected_models:
-
-                model_path = benchmark_folder / f"{model_name}.csv"
-
-                model_df = pd.read_csv(model_path, sep=";")
-
-                display_df[f"{model_name} FL"] = (
-                    model_df["fl_mm"]
-                    .round(1)
-                    .fillna("-")
-                )
-
-                display_df[f"{model_name} FL MAE"] = (
-                    (model_df["fl_mm"] - benchmark_df["AVG_FL"])
-                    .abs()
-                    .round(2)
-                    .fillna("-")
-                )
-            
-
-            # -----------------------------
-            # MT comparison
-            # -----------------------------
-
-            display_df["MT Experts"] = benchmark_df["MT Experts"]
-
-            for model_name in selected_models:
-
-                model_path = benchmark_folder / f"{model_name}.csv"
-
-                model_df = pd.read_csv(model_path, sep=";")
-
-                display_df[f"{model_name} MT"] = (
-                    model_df["mt_mm"]
-                    .round(1)
-                    .fillna("-")
-                )
-
-                display_df[f"{model_name} MT MAE"] = (
-                    (model_df["mt_mm"] - benchmark_df["AVG_MT"])
-                    .abs()
-                    .round(2)
-                    .fillna("-")
-                )
-
-            # -----------------------------
-            # PA comparison
-            # -----------------------------
-
-            display_df["PA Experts"] = benchmark_df["PA Experts"]
-
-            for model_name in selected_models:
-
-                model_path = benchmark_folder / f"{model_name}.csv"
-
-                model_df = pd.read_csv(model_path, sep=";")
-
-                display_df[f"{model_name} PA"] = (
-                    model_df["pa_deg"]
-                    .round(1)
-                    .fillna("-")
-                )
-
-                display_df[f"{model_name} PA MAE"] = (
-                    (model_df["pa_deg"] - benchmark_df["AVG_PA"])
-                    .abs()
-                    .round(2)
-                    .fillna("-")
-                )
 
             # -----------------------------
             # Display table

@@ -23,11 +23,11 @@ def list_pending_submissions():
 
     return pending_submissions
 
-def load_submission(model_name):
+def load_submission(model_name, folder='submissions'):
     submissions_folder = (
         Path(__file__).parent.parent
         / 'benchmark_data'
-        / 'submissions'
+        / folder
     )
 
     csv_path = submissions_folder / f'{model_name}.csv'
@@ -167,3 +167,4 @@ def reject_submission(model_name):
         metadata_path,
         destination_metadata
     )
+

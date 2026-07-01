@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import tempfile
 import openpyxl
+from .submission_storage import load_submission
 
 # Option 1 from the menu: open de submission's CSV
 def open_submission_csv(model_name):
@@ -76,6 +77,126 @@ def build_imagewise_comparison(
 
     return comparison_df
 
+def build_web_imagewise_comparison(selected_models):
+
+    benchmark_folder = (
+        Path(__file__).parent.parent
+        / "benchmark_data"
+    )
+
+    benchmark_path = (
+        benchmark_folder
+        / "35_images_benchmark_summary.csv"
+    )
+
+    benchmark_df = pd.read_csv(
+        benchmark_path,
+        sep=";"
+    )
+
+    benchmark_df["FL Experts"] = (
+        benchmark_df["AVG_FL"].round(1).astype(str)
+        + " ± "
+        + benchmark_df["SD_FL"].round(1).astype(str)
+    )
+
+    benchmark_df["MT Experts"] = (
+        benchmark_df["AVG_MT"].round(1).astype(str)
+        + " ± "
+        + benchmark_df["SD_MT"].round(1).astype(str)
+    )
+
+    benchmark_df["PA Experts"] = (
+        benchmark_df["AVG_PA"].round(1).astype(str)
+        + " ± "
+        + benchmark_df["SD_PA"].round(1).astype(str)
+    )
+
+    display_df = pd.DataFrame()
+
+    display_df["image_id"] = benchmark_df["image_id"]
+
+    display_df["FL Experts"] = benchmark_df["FL Experts"]
+
+    approved_folder = (
+        Path(__file__).parent.parent
+        / "benchmark_data"
+        / "approved_submissions"
+    )
+
+    for model_name in selected_models:
+
+        model_path = approved_folder / f"{model_name}.csv"
+
+        model_df = pd.read_csv(
+            model_path,
+            sep=";"
+        )
+
+        display_df[f"{model_name} FL"] = (
+            model_df["fl_mm"]
+            .round(1)
+            .fillna("-")
+        )
+
+        display_df[f"{model_name} FL MAE"] = (
+            (model_df["fl_mm"] - benchmark_df["AVG_FL"])
+            .abs()
+            .round(2)
+            .fillna("-")
+        )
+
+    display_df["MT Experts"] = benchmark_df["MT Experts"]
+
+    for model_name in selected_models:
+
+        model_path = approved_folder / f"{model_name}.csv"
+
+        model_df = pd.read_csv(
+            model_path,
+            sep=";"
+        )
+
+        display_df[f"{model_name} MT"] = (
+            model_df["mt_mm"]
+            .round(1)
+            .fillna("-")
+        )
+
+        display_df[f"{model_name} MT MAE"] = (
+            (model_df["mt_mm"] - benchmark_df["AVG_MT"])
+            .abs()
+            .round(2)
+            .fillna("-")
+        )
+
+    display_df["PA Experts"] = benchmark_df["PA Experts"]
+
+    for model_name in selected_models:
+
+        model_path = approved_folder / f"{model_name}.csv"
+
+        model_df = pd.read_csv(
+            model_path,
+            sep=";"
+        )
+
+        display_df[f"{model_name} PA"] = (
+            model_df["pa_deg"]
+            .round(1)
+            .fillna("-")
+        )
+
+        display_df[f"{model_name} PA MAE"] = (
+            (model_df["pa_deg"] - benchmark_df["AVG_PA"])
+            .abs()
+            .round(2)
+            .fillna("-")
+        )
+
+    return display_df
+
+
 def build_summary_dataframe(comparison_df, model_name):
     summary_df = pd.DataFrame({
         'Model': [model_name],
@@ -121,3 +242,61 @@ def export_comparison(
         )
 
     return report_path
+
+def build_global_summary():
+
+    approved_folder = (
+        Path(__file__).parent.parent
+        / "benchmark_data"
+        / "approved_submissions"
+    )
+
+    model_files = list(
+        approved_folder.glob("*.csv")
+    )
+
+    benchmark_df = load_benchmark()
+
+    summary_rows = []
+
+    for model_file in model_files:
+
+        model_name = model_file.stem
+
+        submission = load_submission(
+            model_name,
+            folder="approved_submissions"
+        )
+
+        comparison_df = build_imagewise_comparison(
+            submission["predictions"],
+            benchmark_df,
+            model_name
+        )
+
+        summary_df = build_summary_dataframe(
+            comparison_df,
+            model_name
+        )
+
+        summary_rows.append(summary_df)
+
+    if len(summary_rows) == 0:
+
+        return pd.DataFrame(
+            columns=[
+                "Model",
+                "FL MAE (mm)",
+                "MT MAE (mm)",
+                "PA MAE (°)"
+            ]
+        )
+
+    summary_df = pd.concat(
+        summary_rows,
+        ignore_index=True
+    )
+
+    summary_df = summary_df.round(2)
+
+    return summary_df
