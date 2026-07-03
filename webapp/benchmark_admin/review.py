@@ -2,7 +2,17 @@ import os
 from pathlib import Path
 
 from submission_storage import list_pending_submissions, load_submission, approve_submission, reject_submission
-from review_tools import open_submission_csv, load_benchmark, build_imagewise_comparison, build_summary_dataframe, export_comparison
+from review_tools import (
+    open_submission_csv,
+    load_benchmark,
+    load_video_benchmark,
+    build_imagewise_comparison,
+    build_video_framewise_comparison,
+    build_summary_dataframe,
+    build_video_summary_dataframe,
+    export_comparison,
+    export_video_comparison
+)
 
 def main():
 
@@ -70,35 +80,76 @@ def main():
             elif action == '2':
                 action_name = ' Generate benchmark comparison report'
 
-                submission = load_submission(selected_submission['model_name'])
+                submission = load_submission(
+                selected_submission["model_name"]
+            )
 
-                benchmark = load_benchmark()
+                if (
+                    selected_submission["benchmark_task"]
+                    == "Muscle Architecture (Images)"
+                ):
 
-                comparison_df = build_imagewise_comparison(
-                    submission['predictions'],
-                    benchmark,
-                    selected_submission['model_name']
-                )
+                    benchmark = load_benchmark()
 
-                summary_df = build_summary_dataframe(
-                    comparison_df,
-                    selected_submission['model_name']
-                )
+                    comparison_df = build_imagewise_comparison(
+                        submission["predictions"],
+                        benchmark,
+                        selected_submission["model_name"]
+                    )
+
+                    summary_df = build_summary_dataframe(
+                        comparison_df,
+                        selected_submission["model_name"]
+                    )
+
+                elif (
+                    selected_submission["benchmark_task"]
+                    == "Muscle Architecture (Video)"
+                ):
+
+                    benchmark = load_video_benchmark()
+
+                    comparison_df = build_video_framewise_comparison(
+                        submission["predictions"],
+                        benchmark,
+                        selected_submission["model_name"]
+                    )
+
+                    summary_df = build_video_summary_dataframe(
+                        comparison_df,
+                        selected_submission["model_name"]
+                    )
+
+                else:
+
+                    print("Unsupported benchmark task.")
+                    continue
 
                 print(comparison_df)
                 print()
                 print(summary_df)
 
-                report_path = export_comparison(
-                    summary_df,
-                    comparison_df,
-                    selected_submission['model_name']
-                )
+                if (
+                    selected_submission["benchmark_task"]
+                    == "Muscle Architecture (Images)"
+                ):
 
-                open_report = input('Open report in Excel? (Y/N): ')
-                
-                if open_report.upper() == 'Y':
-                    os.startfile(report_path)
+                    report_path = export_comparison(
+                        summary_df,
+                        comparison_df,
+                        selected_submission["model_name"]
+                    )
+
+                elif (
+                    selected_submission["benchmark_task"]
+                    == "Muscle Architecture (Video)"
+                ):
+
+                    report_path = export_video_comparison(
+                        summary_df,
+                        comparison_df,
+                        selected_submission["model_name"]
+                    )
 
             elif action == '3':
                 action_name = 'Approve submission'

@@ -18,8 +18,11 @@ from helpers.display_functions import (
     )
 from benchmark_admin.review_tools import (
     build_web_imagewise_comparison,
-    build_global_summary
+    build_global_summary,
+    build_video_global_summary,
+    build_web_video_framewise_comparison,
     )
+from benchmark_admin.submission_storage import load_submission
 from helpers.data_tools import *
 from helpers.pydantic_models import DatasetMetadata
 from helpers.footer import add_footer
@@ -542,7 +545,7 @@ elif selected_tab == "Benchmarks":
     <div style="padding: 15px; border: 2px solid #008080; border-radius: 10px; background-color: #ccdfe1;">
         <h3 style="text-align: center; color: #008080;">✨ Benchmarking Muscle Ultrasound Analysis</h3>
         <p style="text-align: center;">
-            This section helps evaluate <b>muscle geometry analysis algorithms</b> in ultrasonography. Key parameters include 
+            This section helps evaluate <b>muscle architecture analysis algorithms</b> in ultrasonography. Key parameters include 
             <b>anatomical cross-sectional area (ACSA), fascicle length, pennation angle, and muscle thickness</b>, essential for understanding muscle function 
             and adaptation. Manual analysis, though a gold standard, is labor-intensive and subjective.  
         </p>
@@ -617,28 +620,26 @@ elif selected_tab == "Benchmarks":
 
     By expanding the fields below, you can take a detailed look at the model/algorithm performance on our provided training and expert analysed test images.
 
-    Under construction 🛠...
-
     **Please select the benchmark task you want to compare:**
     """
     )
 
     benchmark_option = st.selectbox(
-        "",
+        "Benchmark Task Selection",
         [
             "Select a benchmark task...",
-            "Muscle Geometry - Static Architecture",
-            "Dynamic Muscle Architecture",
+            "Muscle Architecture (Images)",
+            "Muscle Architecture (Video)",
             "ACSA Quantification",
         ],
         label_visibility="collapsed"
     )
 
-    if benchmark_option == "Muscle Geometry - Static Architecture":
+    if benchmark_option == "Muscle Architecture (Images)":
 
         st.markdown(
             """
-            ### Muscle Geometry Benchmark
+            ### Muscle Architecture Benchmark
 
             This benchmark evaluates:
             - Fascicle Length (FL)
@@ -667,7 +668,7 @@ elif selected_tab == "Benchmarks":
             / "35_images_benchmark_summary.csv"
         )
 
-        benchmark_df = pd.read_csv(benchmark_path, sep=";")
+        benchmark_df = pd.read_csv(benchmark_path, sep=",")
 
         template_df = pd.DataFrame(
             {
@@ -678,7 +679,7 @@ elif selected_tab == "Benchmarks":
             }
         )
 
-        csv = template_df.to_csv(index=False).encode("utf-8")
+        csv = template_df.to_csv(sep=',', index=False).encode("utf-8")
 
         st.download_button(
             label="📥 Download Submission Template",
@@ -719,7 +720,7 @@ elif selected_tab == "Benchmarks":
 
                 save_path = benchmark_folder / f"{model_name}.csv"
 
-                submission_df.to_csv(save_path, index=False)
+                submission_df.to_csv(save_path, sep=',', index=False)
 
                 # -----------------------------
                 # Save metadata
@@ -727,7 +728,7 @@ elif selected_tab == "Benchmarks":
 
                 metadata = {
                     "model_name": model_name,
-                    "benchmark_task": "Muscle Geometry - Static Architecture",
+                    "benchmark_task": "Muscle Architecture (Images)",
                     "submission_date": pd.Timestamp.now().strftime(
                         "%Y-%m-%d %H:%M"
                     ),
@@ -887,7 +888,252 @@ elif selected_tab == "Benchmarks":
             st.dataframe(
                 styled_df,
                 use_container_width=True
-            )   
+            )
+
+    if benchmark_option == "Muscle Architecture (Video)":
+
+        st.markdown(
+            """
+            ### Muscle Architecture Benchmark
+
+            This benchmark evaluates:
+            - Fascicle Length (FL)
+            - Pennation Angle (PA)
+
+            #### Analysis Methodology
+
+            The video frames were manually analysed using a custom Matlab script. For this, The fascicles and pennation angles were drawn until the aponeurosis intersections. The resulting value represented the final estimate for the fascicle length and pennation angle. This methodology was kept constant between all three expert raters. Only every second frame whas analysed, beginning with frame 0. Every other frame was interpolated as the mean between two subsequent manual analysis frames. 
+
+            #### Dataset description
+            The UMUD benchmark GM architecture calf raise dataset contains 167 architectural images from the muscle belly of the gastrocnemius medialis during a calf raise exercise. 
+            The video was acquired using a Telemed ultrasound device. The video was acquired in a healthy male. Both, the single frames as well as the video is contained in the dataset. 
+            This dataset can be used to test analysis algorithms evaluating dynamic muscle behaviour.
+
+            """
+        )
+
+        st. markdown("##### Benchmark Submission")
+
+        st.markdown(
+            """
+            Upload your model predictions in CSV format to compare them against the expert benchmark dataset.
+            """
+        )
+
+        # -----------------------------
+        # Submission Template
+        # -----------------------------
+
+        benchmark_path = (
+            Path(__file__).parent
+            / "benchmark_data"
+            / "benchmark_architecture_GM_calf_raise_v0.1.0.csv"
+        )
+
+        benchmark_df = pd.read_csv(benchmark_path, sep=",")
+
+        template_df = pd.DataFrame(
+            {
+                "frame": benchmark_df["frame"],
+                "fl_mm": np.nan,
+                "pa_deg": np.nan,
+            }
+        )
+
+        csv = template_df.to_csv(sep=',',index=False).encode("utf-8")
+
+        st.download_button(
+            label="📥 Download Submission Template",
+            data=csv,
+            file_name="muscle_architecture_benchmark_template.csv",
+            mime="text/csv",
+        )
+
+        model_name = st.text_input(
+            "Model Name (Required)",
+            placeholder="e.g. DL_Track",
+        )
+
+        uploaded_file = st.file_uploader(
+            "Submit Your Own Results",
+            type=["csv"]
+        )
+
+        if uploaded_file is not None:
+
+            if not model_name.strip():
+                st.error("Please enter a model name")
+
+            else:
+
+                submission_df = pd.read_csv(uploaded_file)
+
+                # -----------------------------
+                # Create local folder if needed
+                # -----------------------------
+
+                benchmark_folder = Path("benchmark_data/submissions")
+                benchmark_folder.mkdir(exist_ok=True)
+
+                # -----------------------------
+                # Save uploaded file locally
+                # -----------------------------
+
+                save_path = benchmark_folder / f"{model_name}.csv"
+
+                submission_df.to_csv(save_path, sep=',', index=False)
+
+                # -----------------------------
+                # Save metadata
+                # -----------------------------
+
+                metadata = {
+                    "model_name": model_name,
+                    "benchmark_task": "Muscle Architecture (Video)",
+                    "submission_date": pd.Timestamp.now().strftime(
+                        "%Y-%m-%d %H:%M"
+                    ),
+                    "status": "pending",
+                }
+
+                metadata_path = (
+                    benchmark_folder
+                    / f"{model_name}_metadata.json"
+                )
+
+                with open(metadata_path, "w") as f:
+
+                    json.dump(metadata, f, indent=4)
+
+                st.success("Thank you for your submission. ")
+
+        st.markdown("---")
+
+        # -----------------------------
+        # Global Benchmark Summary
+        # -----------------------------
+
+        st.markdown("### Global Benchmark Performance")
+
+        st.caption(
+            """
+            Mean Absolute Error (MAE) relative to expert consensus.
+            """
+        )
+
+        summary_df = build_video_global_summary()
+
+        # -----------------------------
+        # Fascicle Length
+        # -----------------------------
+
+        st.markdown("#### Fascicle Length")
+
+        fl_ranking = (
+            summary_df[["Model", "FL MAE (mm)"]]
+            .sort_values("FL MAE (mm)")
+            .reset_index(drop=True)
+        )
+
+        fl_ranking.index += 1
+
+        fl_ranking = (
+            fl_ranking
+            .rename_axis("Rank")
+            .reset_index()
+        )
+
+        st.dataframe(
+            fl_ranking,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # -----------------------------
+        # Pennation Angle
+        # -----------------------------
+
+        st.markdown("#### Pennation Angle")
+
+        pa_ranking = (
+            summary_df[["Model", "PA MAE (°)"]]
+            .sort_values("PA MAE (°)")
+            .reset_index(drop=True)
+        )
+
+        pa_ranking.index += 1
+
+        pa_ranking = (
+            pa_ranking
+            .rename_axis("Rank")
+            .reset_index()
+        )
+
+        st.dataframe(
+            pa_ranking,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # -----------------------------
+        # Frame-wise Comparison
+        # -----------------------------
+
+        benchmark_folder = Path("benchmark_data/approved_submissions")
+
+        model_files = list(
+            benchmark_folder.glob("*.csv")
+        )
+
+        available_models = []
+
+        for model_file in model_files:
+
+            submission = load_submission(
+                model_file.stem,
+                folder="approved_submissions"
+            )
+
+            if (
+                submission["metadata"].get("benchmark_task")
+                == "Muscle Architecture (Video)"
+            ):
+                available_models.append(model_file.stem)
+
+        selected_models = st.multiselect(
+            "Select models to compare",
+            available_models
+        )
+
+        with st.expander("🔍 View Frame-Wise Benchmark Analysis"):
+
+            display_df = build_web_video_framewise_comparison(
+                selected_models
+            )
+
+            styled_df = (
+                display_df.style
+                .apply(highlight_metric_columns)
+                .set_properties(
+                    **{
+                        "text-align": "center"
+                    }
+                )
+                .set_table_styles(
+                    [
+                        {
+                            "selector": "th",
+                            "props": [("text-align", "center")]
+                        }
+                    ]
+                )
+                .format(precision=2)
+            )
+
+            st.dataframe(
+                styled_df,
+                use_container_width=True
+            )
 
     # with st.expander("**🤗 Algorithm Training Metrics**"):
 
@@ -1400,7 +1646,7 @@ elif selected_tab == "About Us":
 #                 # Load submission
 #                 # -----------------------------
 
-#                 submission_df = pd.read_csv(csv_path, sep=";")
+#                 submission_df = pd.read_csv(csv_path, sep=",")
 
 #                 # -----------------------------
 #                 # Load benchmark

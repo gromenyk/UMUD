@@ -37,7 +37,7 @@ def load_submission(model_name, folder='submissions'):
         / f'{model_name}_metadata.json'
     )
 
-    predictions = pd.read_csv(csv_path, sep=';')
+    predictions = pd.read_csv(csv_path, sep=',')
 
     with open(metadata_path, 'r') as f:
         metadata = json.load(f)
