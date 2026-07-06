@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import tempfile
 import openpyxl
+import pingouin as pg
 try:
     from .submission_storage import load_submission
 except ImportError:
@@ -71,6 +72,18 @@ def build_imagewise_comparison(
 
     comparison_df = pd.DataFrame({
         'Image': merged_df['image_id'],
+
+        # Numeric values for statistics
+        'FL Reference':
+            merged_df['AVG_FL'],
+
+        'MT Reference':
+            merged_df['AVG_MT'],
+
+        'PA Reference':
+            merged_df['AVG_PA'],
+
+        # Formatted values for display
         'FL Experts': 
             merged_df['AVG_FL'].round(1).astype(str)
             + ' ± '
@@ -116,6 +129,16 @@ def build_video_framewise_comparison(
 
         "Frame":
             merged_df["frame"],
+
+        # Numeric values for statistics
+
+        "FL Reference":
+            merged_df["mean_fl_gm"],
+
+        "PA Reference":
+            merged_df["mean_pa_gm"],
+
+        # Formatted values for display
 
         "FL Experts":
             merged_df["mean_fl_gm"].round(1).astype(str)
@@ -211,7 +234,7 @@ def build_web_imagewise_comparison(selected_models):
             .fillna("-")
         )
 
-        display_df[f"{model_name} FL MAE"] = (
+        display_df[f"{model_name} FL Error"] = (
             (model_df["fl_mm"] - benchmark_df["AVG_FL"])
             .abs()
             .round(2)
@@ -235,7 +258,7 @@ def build_web_imagewise_comparison(selected_models):
             .fillna("-")
         )
 
-        display_df[f"{model_name} MT MAE"] = (
+        display_df[f"{model_name} MT Error"] = (
             (model_df["mt_mm"] - benchmark_df["AVG_MT"])
             .abs()
             .round(2)
@@ -259,7 +282,7 @@ def build_web_imagewise_comparison(selected_models):
             .fillna("-")
         )
 
-        display_df[f"{model_name} PA MAE"] = (
+        display_df[f"{model_name} PA Error"] = (
             (model_df["pa_deg"] - benchmark_df["AVG_PA"])
             .abs()
             .round(2)
@@ -330,7 +353,7 @@ def build_web_video_framewise_comparison(selected_models):
             .fillna("-")
         )
 
-        display_df[f"{model_name} FL MAE"] = (
+        display_df[f"{model_name} FL Error"] = (
             (model_df["fl_mm"] - benchmark_df["mean_fl_gm"])
             .abs()
             .round(2)
@@ -360,7 +383,7 @@ def build_web_video_framewise_comparison(selected_models):
             .fillna("-")
         )
 
-        display_df[f"{model_name} PA MAE"] = (
+        display_df[f"{model_name} PA Error"] = (
             (model_df["pa_deg"] - benchmark_df["mean_pa_gm"])
             .abs()
             .round(2)
@@ -371,17 +394,223 @@ def build_web_video_framewise_comparison(selected_models):
 
 
 def build_summary_dataframe(comparison_df, model_name):
+    fl_reference = comparison_df["FL Reference"]
+    fl_prediction = comparison_df[f"{model_name} FL"]
+
+    mt_reference = comparison_df["MT Reference"]
+    mt_prediction = comparison_df[f"{model_name} MT"]
+
+    pa_reference = comparison_df["PA Reference"]
+    pa_prediction = comparison_df[f"{model_name} PA"]
+
+    fl_valid = pd.DataFrame({
+        "Reference": fl_reference,
+        "Prediction": fl_prediction
+    }).dropna()
+
+    mt_valid = pd.DataFrame({
+        "Reference": mt_reference,
+        "Prediction": mt_prediction
+    }).dropna()
+
+    pa_valid = pd.DataFrame({
+        "Reference": pa_reference,
+        "Prediction": pa_prediction
+    }).dropna()
+
+    fl_reference = fl_valid["Reference"]
+    fl_prediction = fl_valid["Prediction"]
+
+    mt_reference = mt_valid["Reference"]
+    mt_prediction = mt_valid["Prediction"]
+
+    pa_reference = pa_valid["Reference"]
+    pa_prediction = pa_valid["Prediction"]
+
+    # Bias - Mean signed difference between model predictions and expert reference values.
+
+    fl_bias = (fl_prediction - fl_reference).mean()
+
+    mt_bias = (mt_prediction - mt_reference).mean()
+
+    pa_bias = (pa_prediction - pa_reference).mean()
+
+    # CV (Coefficient of Variation) - Standard deviation of the prediction differences, normalized by the mean reference value (%).
+
+    fl_difference = fl_prediction - fl_reference
+
+    mt_difference = mt_prediction - mt_reference
+
+    pa_difference = pa_prediction - pa_reference
+
+    fl_cv = (
+        fl_difference.std(ddof=1)
+        / fl_reference.mean()
+    ) * 100
+
+    mt_cv = (
+        mt_difference.std(ddof=1)
+        / mt_reference.mean()
+    ) * 100
+
+    pa_cv = (
+        pa_difference.std(ddof=1)
+        / pa_reference.mean()
+    ) * 100
+
+    # ICC (Intraclass Correlation Coefficient) - ICC(2,1): two-way random-effects, absolute agreement, single measurement. Quantifies how consistently the model reproduces the expert reference measurements.
+
+    ## FL ICC
+
+    fl_icc_df = pd.DataFrame({
+        "Image": list(fl_valid.index) * 2,
+        "Rater": (
+            ["Reference"] * len(fl_valid)
+            + [model_name] * len(fl_valid)
+        ),
+        "Score": pd.concat(
+            [
+                fl_reference,
+                fl_prediction
+            ],
+            ignore_index=True
+        )
+    })
+
+    fl_icc_results = pg.intraclass_corr(
+        data=fl_icc_df,
+        targets="Image",
+        raters="Rater",
+        ratings="Score"
+    )
+
+    fl_icc = (
+        fl_icc_results.loc[
+            fl_icc_results["Type"] == "ICC2",
+            "ICC"
+        ].iloc[0]
+    )
+
+    # MT ICC
+
+    mt_icc_df = pd.DataFrame({
+        "Image": list(mt_valid.index) * 2,
+        "Rater": (
+            ["Reference"] * len(mt_valid)
+            + [model_name] * len(mt_valid)
+        ),
+        "Score": pd.concat(
+            [
+                mt_reference,
+                mt_prediction
+            ],
+            ignore_index=True
+        )
+    })
+
+    mt_icc_results = pg.intraclass_corr(
+        data=mt_icc_df,
+        targets="Image",
+        raters="Rater",
+        ratings="Score"
+    )
+
+    mt_icc = (
+        mt_icc_results.loc[
+            mt_icc_results["Type"] == "ICC2",
+            "ICC"
+        ].iloc[0]
+    )
+
+    # PA ICC
+
+    pa_icc_df = pd.DataFrame({
+        "Image": list(pa_valid.index) * 2,
+        "Rater": (
+            ["Reference"] * len(pa_valid)
+            + [model_name] * len(pa_valid)
+        ),
+        "Score": pd.concat(
+            [
+                pa_reference,
+                pa_prediction
+            ],
+            ignore_index=True
+        )
+    })
+
+    pa_icc_results = pg.intraclass_corr(
+        data=pa_icc_df,
+        targets="Image",
+        raters="Rater",
+        ratings="Score"
+    )
+
+    pa_icc = (
+        pa_icc_results.loc[
+            pa_icc_results["Type"] == "ICC2",
+            "ICC"
+        ].iloc[0]
+    )
+
     summary_df = pd.DataFrame({
-        'Model': [model_name],
-        'FL MAE (mm)': [
-            comparison_df[f'{model_name} FL Error'].mean()
+        "Model": [
+            model_name
         ],
-        'MT MAE (mm)': [
-            comparison_df[f'{model_name} MT Error'].mean()
+
+        # Fascicle Length
+
+        "FL MAE (mm)": [
+            (fl_prediction - fl_reference).abs().mean()
         ],
-        'PA MAE (°)': [
-            comparison_df[f'{model_name} PA Error'].mean()
-        ]
+
+        "FL ICC": [
+            fl_icc
+        ],
+
+        "FL CV (%)": [
+            fl_cv
+        ],
+
+        "FL Bias (mm)": [
+            fl_bias
+        ],
+
+        # Muscle Thickness
+
+        "MT MAE (mm)": [
+            (mt_prediction - mt_reference).abs().mean()
+        ],
+
+        "MT ICC": [
+            mt_icc
+        ],
+
+        "MT CV (%)": [
+            mt_cv
+        ],
+
+        "MT Bias (mm)": [
+            mt_bias
+        ],
+
+        # Pennation Angle
+
+        "PA MAE (°)": [
+            (pa_prediction - pa_reference).abs().mean()
+        ],
+
+        "PA ICC": [
+            pa_icc
+        ],
+
+        "PA CV (%)": [
+            pa_cv
+        ],
+
+        "PA Bias (°)": [
+            pa_bias
+        ],
     })
 
     return summary_df
@@ -391,25 +620,154 @@ def build_video_summary_dataframe(
     model_name
 ):
 
-    summary_df = pd.DataFrame({
+    fl_reference = comparison_df["FL Reference"]
+    fl_prediction = comparison_df[f"{model_name} FL"]
 
-        "Model":
-            [model_name],
+    pa_reference = comparison_df["PA Reference"]
+    pa_prediction = comparison_df[f"{model_name} PA"]
 
-        "FL MAE (mm)":
+    fl_valid = pd.DataFrame({
+        "Reference": fl_reference,
+        "Prediction": fl_prediction
+    }).dropna()
+
+    pa_valid = pd.DataFrame({
+        "Reference": pa_reference,
+        "Prediction": pa_prediction
+    }).dropna()
+
+    fl_reference = fl_valid["Reference"]
+    fl_prediction = fl_valid["Prediction"]
+
+    pa_reference = pa_valid["Reference"]
+    pa_prediction = pa_valid["Prediction"]
+
+    # Bias - Mean signed difference between model predictions and expert reference values.
+
+    fl_bias = (fl_prediction - fl_reference).mean()
+
+    pa_bias = (pa_prediction - pa_reference).mean()
+
+    # CV (Coefficient of Variation) - Standard deviation of the prediction differences, normalized by the mean reference value (%).
+
+    fl_difference = fl_prediction - fl_reference
+
+    pa_difference = pa_prediction - pa_reference
+
+    fl_cv = (
+        fl_difference.std(ddof=1)
+        / fl_reference.mean()
+    ) * 100
+
+    pa_cv = (
+        pa_difference.std(ddof=1)
+        / pa_reference.mean()
+    ) * 100
+
+    # ICC (Intraclass Correlation Coefficient) - ICC(2,1): two-way random-effects, absolute agreement, single measurement. Quantifies how consistently the model reproduces the expert reference measurements.
+
+    # FL ICC
+
+    fl_icc_df = pd.DataFrame({
+        "Image": list(fl_valid.index) * 2,
+        "Rater": (
+            ["Reference"] * len(fl_valid)
+            + [model_name] * len(fl_valid)
+        ),
+        "Score": pd.concat(
             [
-                comparison_df[
-                    f"{model_name} FL Error"
-                ].mean()
+                fl_reference,
+                fl_prediction
             ],
+            ignore_index=True
+        )
+    })
 
-        "PA MAE (°)":
+    fl_icc_results = pg.intraclass_corr(
+        data=fl_icc_df,
+        targets="Image",
+        raters="Rater",
+        ratings="Score"
+    )
+
+    fl_icc = (
+        fl_icc_results.loc[
+            fl_icc_results["Type"] == "ICC2",
+            "ICC"
+        ].iloc[0]
+    )
+
+    # PA ICC
+
+    pa_icc_df = pd.DataFrame({
+        "Image": list(pa_valid.index) * 2,
+        "Rater": (
+            ["Reference"] * len(pa_valid)
+            + [model_name] * len(pa_valid)
+        ),
+        "Score": pd.concat(
             [
-                comparison_df[
-                    f"{model_name} PA Error"
-                ].mean()
-            ]
+                pa_reference,
+                pa_prediction
+            ],
+            ignore_index=True
+        )
+    })
 
+    pa_icc_results = pg.intraclass_corr(
+        data=pa_icc_df,
+        targets="Image",
+        raters="Rater",
+        ratings="Score"
+    )
+
+    pa_icc = (
+        pa_icc_results.loc[
+            pa_icc_results["Type"] == "ICC2",
+            "ICC"
+        ].iloc[0]
+    )
+
+    summary_df = pd.DataFrame({
+        "Model": [
+            model_name
+        ],
+
+        # Fascicle Length
+
+        "FL MAE (mm)": [
+            (fl_prediction - fl_reference).abs().mean()
+        ],
+
+        "FL ICC": [
+            fl_icc
+        ],
+
+        "FL CV (%)": [
+            fl_cv
+        ],
+
+        "FL Bias (mm)": [
+            fl_bias
+        ],
+
+        # Pennation Angle
+
+        "PA MAE (°)": [
+            (pa_prediction - pa_reference).abs().mean()
+        ],
+
+        "PA ICC": [
+            pa_icc
+        ],
+
+        "PA CV (%)": [
+            pa_cv
+        ],
+
+        "PA Bias (°)": [
+            pa_bias
+        ],
     })
 
     return summary_df
@@ -587,8 +945,20 @@ def build_video_global_summary():
         return pd.DataFrame(
             columns=[
                 "Model",
+
+                # Fascicle Length
+
                 "FL MAE (mm)",
-                "PA MAE (°)"
+                "FL ICC",
+                "FL CV (%)",
+                "FL Bias (mm)",
+
+                # Pennation Angle
+
+                "PA MAE (°)",
+                "PA ICC",
+                "PA CV (%)",
+                "PA Bias (°)"
             ]
         )
 
