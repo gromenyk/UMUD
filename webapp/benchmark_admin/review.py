@@ -1,7 +1,12 @@
 import os
 from pathlib import Path
-
-from submission_storage import list_pending_submissions, load_submission, approve_submission, reject_submission
+from submission_storage import (
+    list_pending_submissions, 
+    load_submission, 
+    approve_submission, 
+    reject_submission,
+    upload_benchmark
+)
 from review_tools import (
     open_submission_csv,
     load_image_benchmark,
@@ -22,32 +27,113 @@ def main():
 
         pending = list_pending_submissions()
 
-        print()
         print('=' * 50)
-        print("UMUD Benchmark Review")
+        print("UMUD Benchmark Administration")
         print('=' * 50)
         print()
 
+        print("1) Review pending submissions")
+        print("2) Upload benchmark")
+        print("0) Exit")
+        print()
+
+        main_option = input("Select option: ")
+
+        if main_option == "0":
+            break
+        
+        elif main_option == "2":
+
+            print()
+            print("=" * 50)
+            print("Upload Benchmark")
+            print("=" * 50)
+            print()
+
+            print("1) Muscle Architecture (Images)")
+            print("2) Muscle Architecture (Video)")
+            print("3) ACSA Quantification")
+            print()
+
+            benchmark_option = input(
+                "Select benchmark: "
+            )
+
+            if benchmark_option == "1":
+
+                benchmark_task = (
+                    "Muscle Architecture (Images)"
+                )
+
+            elif benchmark_option == "2":
+
+                benchmark_task = (
+                    "Muscle Architecture (Video)"
+                )
+
+            elif benchmark_option == "3":
+
+                benchmark_task = (
+                    "ACSA Quantification"
+                )
+
+            else:
+
+                print("Invalid option.")
+                continue
+
+            csv_path = input(
+                "CSV path: "
+            )
+
+            upload_benchmark(
+                benchmark_task,
+                csv_path
+            )
+
+            print()
+            print("Benchmark uploaded successfully.")
+
+            input(
+                "\nPress ENTER to continue..."
+            )
+
+            continue
+        
+        if main_option != "1":
+            continue
+
+        if len(pending) == 0:
+            print("No pending submissions for review")
+            input("\nPress ENTER...")
+            continue
+
+        print()
         print(f"Pending submissions: {len(pending)}")
         print()
 
-        if len(pending) == 0:
-            print('No pending submissions for review')
-            return
-
         for index, submission in enumerate(pending, start=1):
+
             print(f"{index}) {submission['model_name']}")
             print(f"Benchmark: {submission['benchmark_task']}")
             print(f"Submission Date: {submission['submission_date']}")
             print()
 
-        print('0) Exit')
+        print('0) Back')
         print()
 
         selection = int(input('Select Submission: '))
 
         if selection == 0:
-            break
+            continue
+        
+        if (
+            selection < 1
+            or selection > len(pending)
+        ):
+            print("Invalid selection.")
+            input("\nPress ENTER...")
+            continue
 
         selected_submission = pending[selection - 1]
 
@@ -73,15 +159,11 @@ def main():
             action = input("Select action: ")
 
             if action == '1':
-                action_name = 'Open submission CSV'
-
                 open_submission_csv(
                     selected_submission['model_name']
                 )
 
             elif action == '2':
-                action_name = ' Generate benchmark comparison report'
-
                 submission = load_submission(
                 selected_submission["model_name"]
             )
@@ -183,8 +265,6 @@ def main():
                     )
 
             elif action == '3':
-                action_name = 'Approve submission'
-
                 approve_submission(
                     selected_submission['model_name']
                 )
@@ -199,14 +279,12 @@ def main():
                 break
 
             elif action == '4':
-                action_name = 'Reject submission'
-
                 reject_submission(
                     selected_submission['model_name']
                 )
 
                 print()
-                print(f'{selected_submission["model_name"]} rejected and moved to the rejected submissions folder')
+                print(f'{selected_submission["model_name"]} rejected succesfully')
 
                 input(
                     '\nPress ENTER to return to the submissions list...'
@@ -218,7 +296,8 @@ def main():
                 break
 
             else:
-                action_name = 'Unknown'
+                print("Invalid option.")
+                input("\nPress ENTER...")
 
 if __name__ == '__main__':
     main()

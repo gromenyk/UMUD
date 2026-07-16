@@ -5,23 +5,37 @@ import tempfile
 import openpyxl
 import pingouin as pg
 try:
-    from .submission_storage import load_submission
+    from .submission_storage import (
+        load_submission,
+        approved_submissions_collection,
+        benchmarks_collection
+    )
 except ImportError:
-    from submission_storage import load_submission
+    from submission_storage import (
+        load_submission,
+        approved_submissions_collection,
+        benchmarks_collection
+    )
 
 # Common functions
 
 def open_submission_csv(model_name):
 
-    submissions_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-        / "submissions"
+    submission = load_submission(model_name)
+
+    predictions = submission["predictions"]
+
+    temp_csv = (
+        Path(tempfile.gettempdir())
+        / f"{model_name}.csv"
     )
 
-    csv_path = submissions_folder / f"{model_name}.csv"
+    predictions.to_csv(
+        temp_csv,
+        index=False
+    )
 
-    os.startfile(csv_path)
+    os.startfile(temp_csv)
 
 def export_comparison(
     summary_df,
@@ -59,19 +73,21 @@ def export_comparison(
 
 def load_image_benchmark():
 
-    benchmark_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
+    document = benchmarks_collection.find_one(
+        {
+            "benchmark_name":
+            "Benchmark Images"
+        }
     )
 
-    benchmark_path = (
-        benchmark_folder
-        / "35_images_benchmark_summary.csv"
-    )
+    if document is None:
 
-    benchmark_df = pd.read_csv(
-        benchmark_path,
-        sep=";"
+        raise ValueError(
+            "Images benchmark not found in database."
+        )
+
+    benchmark_df = pd.DataFrame(
+        document["data"]
     )
 
     return benchmark_df
@@ -128,20 +144,7 @@ def build_imagewise_comparison(
 
 def build_web_imagewise_comparison(selected_models):
 
-    benchmark_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-    )
-
-    benchmark_path = (
-        benchmark_folder
-        / "35_images_benchmark_summary.csv"
-    )
-
-    benchmark_df = pd.read_csv(
-        benchmark_path,
-        sep=";"
-    )
+    benchmark_df = load_image_benchmark()
 
     benchmark_df["FL Experts"] = (
         benchmark_df["AVG_FL"].round(1).astype(str)
@@ -167,19 +170,19 @@ def build_web_imagewise_comparison(selected_models):
 
     display_df["FL Experts"] = benchmark_df["FL Experts"]
 
-    approved_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-        / "approved_submissions"
-    )
-
     for model_name in selected_models:
 
-        model_path = approved_folder / f"{model_name}.csv"
+        document = approved_submissions_collection.find_one(
+            {
+                "metadata.model_name": model_name
+            }
+        )
 
-        model_df = pd.read_csv(
-            model_path,
-            sep=","
+        if document is None:
+            continue
+
+        model_df = pd.DataFrame(
+            document["predictions"]
         )
 
         display_df[f"{model_name} FL"] = (
@@ -199,11 +202,17 @@ def build_web_imagewise_comparison(selected_models):
 
     for model_name in selected_models:
 
-        model_path = approved_folder / f"{model_name}.csv"
+        document = approved_submissions_collection.find_one(
+            {
+                "metadata.model_name": model_name
+            }
+        )
 
-        model_df = pd.read_csv(
-            model_path,
-            sep=","
+        if document is None:
+            continue
+
+        model_df = pd.DataFrame(
+            document["predictions"]
         )
 
         display_df[f"{model_name} MT"] = (
@@ -223,11 +232,17 @@ def build_web_imagewise_comparison(selected_models):
 
     for model_name in selected_models:
 
-        model_path = approved_folder / f"{model_name}.csv"
+        document = approved_submissions_collection.find_one(
+            {
+                "metadata.model_name": model_name
+            }
+        )
 
-        model_df = pd.read_csv(
-            model_path,
-            sep=","
+        if document is None:
+            continue
+
+        model_df = pd.DataFrame(
+            document["predictions"]
         )
 
         display_df[f"{model_name} PA"] = (
@@ -469,28 +484,21 @@ def build_summary_dataframe(comparison_df, model_name):
 
 def build_image_global_summary():
 
-    approved_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-        / "approved_submissions"
-    )
-
-    model_files = list(
-        approved_folder.glob("*.csv")
-    )
-
     benchmark_df = load_image_benchmark()
 
     summary_rows = []
 
-    for model_file in model_files:
+    for document in approved_submissions_collection.find():
 
-        model_name = model_file.stem
+        submission = {
+            "metadata": document["metadata"],
+            "predictions": pd.DataFrame(
+                document["predictions"]
+            ),
+            "model_name": document["metadata"]["model_name"]
+        }
 
-        submission = load_submission(
-            model_name,
-            folder="approved_submissions"
-        )
+        model_name = submission["model_name"]
 
         if (
             submission["metadata"].get("benchmark_task")
@@ -516,9 +524,21 @@ def build_image_global_summary():
         return pd.DataFrame(
             columns=[
                 "Model",
+
                 "FL MAE (mm)",
+                "FL ICC",
+                "FL CV (%)",
+                "FL Bias (mm)",
+
                 "MT MAE (mm)",
-                "PA MAE (°)"
+                "MT ICC",
+                "MT CV (%)",
+                "MT Bias (mm)",
+
+                "PA MAE (°)",
+                "PA ICC",
+                "PA CV (%)",
+                "PA Bias (°)"
             ]
         )
 
@@ -537,19 +557,21 @@ def build_image_global_summary():
 
 def load_video_benchmark():
 
-    benchmark_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
+    document = benchmarks_collection.find_one(
+        {
+            "benchmark_name":
+            "Benchmark Video"
+        }
     )
 
-    benchmark_path = (
-        benchmark_folder
-        / "benchmark_architecture_GM_calf_raise_v0.1.0.csv"
-    )
+    if document is None:
 
-    benchmark_df = pd.read_csv(
-        benchmark_path,
-        sep=","
+        raise ValueError(
+            "Video benchmark not found in database."
+        )
+
+    benchmark_df = pd.DataFrame(
+        document["data"]
     )
 
     return benchmark_df
@@ -559,7 +581,7 @@ def build_video_framewise_comparison(
     benchmark_df,
     model_name
 ):
-
+    
     merged_df = pd.merge(
         submission_df,
         benchmark_df,
@@ -616,20 +638,7 @@ def build_video_framewise_comparison(
 
 def build_web_video_framewise_comparison(selected_models):
 
-    benchmark_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-    )
-
-    benchmark_path = (
-        benchmark_folder
-        / "benchmark_architecture_GM_calf_raise_v0.1.0.csv"
-    )
-
-    benchmark_df = pd.read_csv(
-        benchmark_path,
-        sep=","
-    )
+    benchmark_df = load_video_benchmark()
 
     benchmark_df["FL Experts"] = (
         benchmark_df["mean_fl_gm"].round(1).astype(str)
@@ -649,18 +658,24 @@ def build_web_video_framewise_comparison(selected_models):
 
     display_df["FL Experts"] = benchmark_df["FL Experts"]
 
-    approved_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-        / "approved_submissions"
-    )
-
     for model_name in selected_models:
 
-        submission = load_submission(
-            model_name,
-            folder="approved_submissions"
+        document = approved_submissions_collection.find_one(
+            {
+                "metadata.model_name": model_name
+            }
         )
+
+        if document is None:
+            continue
+
+        submission = {
+            "metadata": document["metadata"],
+            "predictions": pd.DataFrame(
+                document["predictions"]
+            ),
+            "model_name": document["metadata"]["model_name"]
+        }
 
         if (
             submission["metadata"].get("benchmark_task")
@@ -687,19 +702,31 @@ def build_web_video_framewise_comparison(selected_models):
 
     for model_name in selected_models:
 
-        submission = load_submission(
-            model_name,
-            folder="approved_submissions"
+        document = approved_submissions_collection.find_one(
+            {
+                "metadata.model_name": model_name
+            }
         )
+
+        if document is None:
+            continue
+
+        submission = {
+            "metadata": document["metadata"],
+            "predictions": pd.DataFrame(
+                document["predictions"]
+            ),
+            "model_name": document["metadata"]["model_name"]
+        }
 
         if (
             submission["metadata"].get("benchmark_task")
             != "Muscle Architecture (Video)"
         ):
             continue
-
+        
         model_df = submission["predictions"]
-
+        
         display_df[f"{model_name} PA"] = (
             model_df["pa_deg"]
             .round(1)
@@ -874,28 +901,21 @@ def build_video_summary_dataframe(
 
 def build_video_global_summary():
 
-    approved_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-        / "approved_submissions"
-    )
-
-    model_files = list(
-        approved_folder.glob("*.csv")
-    )
-
     benchmark_df = load_video_benchmark()
 
     summary_rows = []
 
-    for model_file in model_files:
+    for document in approved_submissions_collection.find():
 
-        model_name = model_file.stem
+        submission = {
+            "metadata": document["metadata"],
+            "predictions": pd.DataFrame(
+                document["predictions"]
+            ),
+            "model_name": document["metadata"]["model_name"]
+        }
 
-        submission = load_submission(
-            model_name,
-            folder="approved_submissions"
-        )
+        model_name = submission["model_name"]
 
         if (
             submission["metadata"].get("benchmark_task")
@@ -952,19 +972,22 @@ def build_video_global_summary():
 #------------------------------
 
 def load_acsa_benchmark():
-    benchmark_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
+
+    document = benchmarks_collection.find_one(
+        {
+            "benchmark_name":
+            "Benchmark ACSA"
+        }
     )
 
-    benchmark_path = (
-        benchmark_folder
-        / "benchmark_acsa_ei.csv"
-    )
+    if document is None:
 
-    benchmark_df = pd.read_csv(
-        benchmark_path,
-        sep=","
+        raise ValueError(
+            "ACSA Quantification benchmark not found in database."
+        )
+
+    benchmark_df = pd.DataFrame(
+        document["data"]
     )
 
     return benchmark_df
@@ -1010,20 +1033,7 @@ def build_acsa_imagewise_comparison(
 
 def build_web_acsa_imagewise_comparison(selected_models):
 
-    benchmark_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-    )
-
-    benchmark_path = (
-        benchmark_folder
-        / "benchmark_acsa_ei.csv"
-    )
-
-    benchmark_df = pd.read_csv(
-        benchmark_path,
-        sep=","
-    )
+    benchmark_df = load_acsa_benchmark()
 
     benchmark_df["ACSA Experts"] = (
         benchmark_df["Mean_Manual_ACSA"].round(1).astype(str)
@@ -1043,19 +1053,19 @@ def build_web_acsa_imagewise_comparison(selected_models):
 
     display_df["ACSA Experts"] = benchmark_df["ACSA Experts"]
 
-    approved_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-        / "approved_submissions"
-    )
-
     for model_name in selected_models:
 
-        model_path = approved_folder / f"{model_name}.csv"
+        document = approved_submissions_collection.find_one(
+            {
+                "metadata.model_name": model_name
+            }
+        )
 
-        model_df = pd.read_csv(
-            model_path,
-            sep=","
+        if document is None:
+            continue
+
+        model_df = pd.DataFrame(
+            document["predictions"]
         )
 
         display_df[f"{model_name} ACSA"] = (
@@ -1075,11 +1085,17 @@ def build_web_acsa_imagewise_comparison(selected_models):
 
     for model_name in selected_models:
 
-        model_path = approved_folder / f"{model_name}.csv"
+        document = approved_submissions_collection.find_one(
+            {
+                "metadata.model_name": model_name
+            }
+        )
 
-        model_df = pd.read_csv(
-            model_path,
-            sep=","
+        if document is None:
+            continue
+
+        model_df = pd.DataFrame(
+            document["predictions"]
         )
 
         display_df[f"{model_name} EI"] = (
@@ -1248,28 +1264,22 @@ def build_acsa_summary_dataframe(comparison_df, model_name):
 
 def build_acsa_global_summary():
 
-    approved_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-        / "approved_submissions"
-    )
-
-    model_files = list(
-        approved_folder.glob("*.csv")
-    )
 
     benchmark_df = load_acsa_benchmark()
 
     summary_rows = []
 
-    for model_file in model_files:
+    for document in approved_submissions_collection.find():
 
-        model_name = model_file.stem
+        submission = {
+            "metadata": document["metadata"],
+            "predictions": pd.DataFrame(
+                document["predictions"]
+            ),
+            "model_name": document["metadata"]["model_name"]
+        }
 
-        submission = load_submission(
-            model_name,
-            folder="approved_submissions"
-        )
+        model_name = submission["model_name"]
 
         if (
             submission["metadata"].get("benchmark_task")

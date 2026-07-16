@@ -23,7 +23,16 @@ from benchmark_admin.review_tools import (
     build_web_video_framewise_comparison,
     build_acsa_global_summary,
     build_web_acsa_imagewise_comparison,
+    load_image_benchmark,
+    load_video_benchmark,
+    load_acsa_benchmark
     )
+from database import (
+    pending_submissions_collection,
+    approved_submissions_collection,
+    rejected_submissions_collection
+)
+
 from benchmark_admin.submission_storage import load_submission
 from helpers.data_tools import *
 from helpers.pydantic_models import DatasetMetadata
@@ -797,26 +806,20 @@ elif selected_tab == "Benchmarks":
         # Image-wise Comparison
         # -----------------------------
 
-        benchmark_folder = Path("benchmark_data/approved_submissions")
-
-        model_files = list(
-            benchmark_folder.glob("*.csv")
-        )
-
         available_models = []
 
-        for model_file in model_files:
+        for document in approved_submissions_collection.find():
 
-            submission = load_submission(
-                model_file.stem,
-                folder="approved_submissions"
-            )
+            metadata = document["metadata"]
 
             if (
-                submission["metadata"].get("benchmark_task")
+                metadata.get("benchmark_task")
                 == "Muscle Architecture (Images)"
             ):
-                available_models.append(model_file.stem)
+
+                available_models.append(
+                    metadata["model_name"]
+                )
 
         selected_models = st.multiselect(
             "Select models to compare",
@@ -875,13 +878,7 @@ elif selected_tab == "Benchmarks":
             # Submission Template
             # -----------------------------
 
-            benchmark_path = (
-                Path(__file__).parent
-                / "benchmark_data"
-                / "35_images_benchmark_summary.csv"
-            )
-
-            benchmark_df = pd.read_csv(benchmark_path, sep=";")
+            benchmark_df = load_image_benchmark()
 
             template_df = pd.DataFrame(
                 {
@@ -911,33 +908,30 @@ elif selected_tab == "Benchmarks":
                 type=["csv"]
             )
 
-            if uploaded_file is not None:
+            submit_clicked = st.button(
+                "📤 Submit Benchmark",
+                key = 'submit_image'
+            )
 
-                if not model_name.strip():
-                    st.error("Please enter a model name")
+            if submit_clicked:
+
+                if uploaded_file is None:
+
+                    st.error(
+                        "Please upload a CSV file."
+                    )
+
+                elif not model_name.strip():
+
+                    st.error(
+                        "Please enter a model name."
+                    )
 
                 else:
 
-                    submission_df = pd.read_csv(uploaded_file)
-
-                    # -----------------------------
-                    # Create local folder if needed
-                    # -----------------------------
-
-                    benchmark_folder = Path("benchmark_data/submissions")
-                    benchmark_folder.mkdir(exist_ok=True)
-
-                    # -----------------------------
-                    # Save uploaded file locally
-                    # -----------------------------
-
-                    save_path = benchmark_folder / f"{model_name}.csv"
-
-                    submission_df.to_csv(save_path, sep=',', index=False)
-
-                    # -----------------------------
-                    # Save metadata
-                    # -----------------------------
+                    submission_df = pd.read_csv(
+                        uploaded_file
+                    )
 
                     metadata = {
                         "model_name": model_name,
@@ -948,16 +942,18 @@ elif selected_tab == "Benchmarks":
                         "status": "pending",
                     }
 
-                    metadata_path = (
-                        benchmark_folder
-                        / f"{model_name}_metadata.json"
+                    document = {
+                        "metadata": metadata,
+                        "predictions": submission_df.to_dict("records")
+                    }
+
+                    pending_submissions_collection.insert_one(
+                        document
                     )
 
-                    with open(metadata_path, "w") as f:
-
-                        json.dump(metadata, f, indent=4)
-
-                    st.success("Thank you for your submission. ")
+                    st.success(
+                        "Thank you for your submission."
+                    )
 
             st.markdown("---")
 
@@ -1083,26 +1079,20 @@ elif selected_tab == "Benchmarks":
         # Frame-wise Comparison
         # -----------------------------
 
-        benchmark_folder = Path("benchmark_data/approved_submissions")
-
-        model_files = list(
-            benchmark_folder.glob("*.csv")
-        )
-
         available_models = []
 
-        for model_file in model_files:
+        for document in approved_submissions_collection.find():
 
-            submission = load_submission(
-                model_file.stem,
-                folder="approved_submissions"
-            )
+            metadata = document["metadata"]
 
             if (
-                submission["metadata"].get("benchmark_task")
+                metadata.get("benchmark_task")
                 == "Muscle Architecture (Video)"
             ):
-                available_models.append(model_file.stem)
+
+                available_models.append(
+                    metadata["model_name"]
+                )
 
         selected_models = st.multiselect(
             "Select models to compare",
@@ -1154,13 +1144,7 @@ elif selected_tab == "Benchmarks":
             # Submission Template
             # -----------------------------
 
-            benchmark_path = (
-                Path(__file__).parent
-                / "benchmark_data"
-                / "benchmark_architecture_GM_calf_raise_v0.1.0.csv"
-            )
-
-            benchmark_df = pd.read_csv(benchmark_path, sep=",")
+            benchmark_df = load_video_benchmark()
 
             template_df = pd.DataFrame(
                 {
@@ -1189,33 +1173,30 @@ elif selected_tab == "Benchmarks":
                 type=["csv"]
             )
 
-            if uploaded_file is not None:
+            submit_clicked = st.button(
+                "📤 Submit Benchmark",
+                key = 'submit_video'
+            )
 
-                if not model_name.strip():
-                    st.error("Please enter a model name")
+            if submit_clicked:
+
+                if uploaded_file is None:
+
+                    st.error(
+                        "Please upload a CSV file."
+                    )
+
+                elif not model_name.strip():
+
+                    st.error(
+                        "Please enter a model name."
+                    )
 
                 else:
 
-                    submission_df = pd.read_csv(uploaded_file)
-
-                    # -----------------------------
-                    # Create local folder if needed
-                    # -----------------------------
-
-                    benchmark_folder = Path("benchmark_data/submissions")
-                    benchmark_folder.mkdir(exist_ok=True)
-
-                    # -----------------------------
-                    # Save uploaded file locally
-                    # -----------------------------
-
-                    save_path = benchmark_folder / f"{model_name}.csv"
-
-                    submission_df.to_csv(save_path, sep=',', index=False)
-
-                    # -----------------------------
-                    # Save metadata
-                    # -----------------------------
+                    submission_df = pd.read_csv(
+                        uploaded_file
+                    )
 
                     metadata = {
                         "model_name": model_name,
@@ -1226,16 +1207,18 @@ elif selected_tab == "Benchmarks":
                         "status": "pending",
                     }
 
-                    metadata_path = (
-                        benchmark_folder
-                        / f"{model_name}_metadata.json"
+                    document = {
+                        "metadata": metadata,
+                        "predictions": submission_df.to_dict("records")
+                    }
+
+                    pending_submissions_collection.insert_one(
+                        document
                     )
 
-                    with open(metadata_path, "w") as f:
-
-                        json.dump(metadata, f, indent=4)
-
-                    st.success("Thank you for your submission. ")
+                    st.success(
+                        "Thank you for your submission."
+                    )
 
             st.markdown("---")
 
@@ -1353,26 +1336,20 @@ elif selected_tab == "Benchmarks":
         # Image-wise Comparison
         # -----------------------------
 
-        benchmark_folder = Path("benchmark_data/approved_submissions")
-
-        model_files = list(
-            benchmark_folder.glob("*.csv")
-        )
-
         available_models = []
 
-        for model_file in model_files:
+        for document in approved_submissions_collection.find():
 
-            submission = load_submission(
-                model_file.stem,
-                folder="approved_submissions"
-            )
+            metadata = document["metadata"]
 
             if (
-                submission["metadata"].get("benchmark_task")
+                metadata.get("benchmark_task")
                 == "ACSA Quantification"
             ):
-                available_models.append(model_file.stem)
+
+                available_models.append(
+                    metadata["model_name"]
+                )
 
         selected_models = st.multiselect(
             "Select models to compare",
@@ -1424,13 +1401,7 @@ elif selected_tab == "Benchmarks":
             # Submission Template
             # -----------------------------
 
-            benchmark_path = (
-                Path(__file__).parent
-                / "benchmark_data"
-                / "benchmark_acsa_ei.csv"
-            )
-
-            benchmark_df = pd.read_csv(benchmark_path, sep=",")
+            benchmark_df = load_acsa_benchmark()
 
             template_df = pd.DataFrame(
                 {
@@ -1459,33 +1430,30 @@ elif selected_tab == "Benchmarks":
                 type=["csv"]
             )
 
-            if uploaded_file is not None:
+            submit_clicked = st.button(
+                "📤 Submit Benchmark",
+                key = 'submit_ACSA'
+            )
 
-                if not model_name.strip():
-                    st.error("Please enter a model name")
+            if submit_clicked:
+
+                if uploaded_file is None:
+
+                    st.error(
+                        "Please upload a CSV file."
+                    )
+
+                elif not model_name.strip():
+
+                    st.error(
+                        "Please enter a model name."
+                    )
 
                 else:
 
-                    submission_df = pd.read_csv(uploaded_file)
-
-                    # -----------------------------
-                    # Create local folder if needed
-                    # -----------------------------
-
-                    benchmark_folder = Path("benchmark_data/submissions")
-                    benchmark_folder.mkdir(exist_ok=True)
-
-                    # -----------------------------
-                    # Save uploaded file locally
-                    # -----------------------------
-
-                    save_path = benchmark_folder / f"{model_name}.csv"
-
-                    submission_df.to_csv(save_path, sep=',', index=False)
-
-                    # -----------------------------
-                    # Save metadata
-                    # -----------------------------
+                    submission_df = pd.read_csv(
+                        uploaded_file
+                    )
 
                     metadata = {
                         "model_name": model_name,
@@ -1496,16 +1464,18 @@ elif selected_tab == "Benchmarks":
                         "status": "pending",
                     }
 
-                    metadata_path = (
-                        benchmark_folder
-                        / f"{model_name}_metadata.json"
+                    document = {
+                        "metadata": metadata,
+                        "predictions": submission_df.to_dict("records")
+                    }
+
+                    pending_submissions_collection.insert_one(
+                        document
                     )
 
-                    with open(metadata_path, "w") as f:
-
-                        json.dump(metadata, f, indent=4)
-
-                    st.success("Thank you for your submission. ")
+                    st.success(
+                        "Thank you for your submission."
+                    )
 
             st.markdown("---")
 

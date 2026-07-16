@@ -1,170 +1,160 @@
 from pathlib import Path
-import json
 import pandas as pd
-import shutil
+import toml
+from pymongo import MongoClient
+
+secrets_path = (
+    Path(__file__).parent.parent
+    / ".streamlit"
+    / "secrets.toml"
+)
+
+with open(secrets_path, "r") as f:
+    secrets = toml.load(f)
+
+mongo_uri = secrets["mongo"]["CONNECTION_STRING"]
+
+client = MongoClient(mongo_uri)
+
+benchmark_db = client.benchmarks
+
+benchmarks_collection = (
+    benchmark_db.benchmarks
+)
+
+pending_submissions_collection = (
+    benchmark_db.review_pending_submissions
+)
+
+approved_submissions_collection = (
+    benchmark_db.approved_submissions
+)
+
+rejected_submissions_collection = (
+    benchmark_db.rejected_submissions
+)
 
 def list_pending_submissions():
-    submissions_folder = (
-        Path(__file__).parent.parent
-        / 'benchmark_data'
-        / 'submissions'
-    )
-
-    metadata_files = submissions_folder.glob('*_metadata.json')
 
     pending_submissions = []
 
-    for metadata_file in metadata_files:
-        with open(metadata_file, 'r') as f:
-            metadata = json.load(f)
+    for document in pending_submissions_collection.find():
 
-        if metadata.get('status') == 'pending':
-            pending_submissions.append(metadata)
+        pending_submissions.append(
+            document["metadata"]
+        )
 
     return pending_submissions
 
-def load_submission(model_name, folder='submissions'):
-    submissions_folder = (
-        Path(__file__).parent.parent
-        / 'benchmark_data'
-        / folder
+def load_submission(model_name):
+
+    document = pending_submissions_collection.find_one(
+        {
+            "metadata.model_name": model_name
+        }
     )
 
-    csv_path = submissions_folder / f'{model_name}.csv'
-
-    metadata_path = (
-        submissions_folder
-        / f'{model_name}_metadata.json'
-    )
-
-    predictions = pd.read_csv(csv_path, sep=',')
-
-    with open(metadata_path, 'r') as f:
-        metadata = json.load(f)
+    if document is None:
+        raise ValueError(
+            f"Submission '{model_name}' not found."
+        )
 
     submission = {
-        'metadata': metadata,
-        'predictions': predictions,
+        "metadata": document["metadata"],
+        "predictions": pd.DataFrame(
+            document["predictions"]
+        ),
         "model_name": model_name
     }
 
     return submission
 
 def approve_submission(model_name):
-    submissions_folder = (
-        Path(__file__).parent.parent
-        / 'benchmark_data'
-        / 'submissions'
+
+    document = pending_submissions_collection.find_one(
+        {
+            "metadata.model_name": model_name
+        }
     )
 
-    approved_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-        / "approved_submissions"
-    )
-
-    approved_folder.mkdir(exist_ok=True)
-
-    metadata_path = (
-        submissions_folder
-        / f'{model_name}_metadata.json'
-    )
-
-    with open(metadata_path, 'r') as f:
-        metadata = json.load(f)
-
-    metadata['status'] = 'approved'
-
-    with open(metadata_path, 'w') as f:
-        json.dump(
-            metadata,
-            f,
-            indent=4
+    if document is None:
+        raise ValueError(
+            f"Submission '{model_name}' not found."
         )
 
-    source_csv = (
-        submissions_folder
-        / f"{model_name}.csv"
+    document["metadata"]["status"] = "approved"
+
+    approved_submissions_collection.insert_one(
+        document
     )
 
-    destination_csv = (
-        approved_folder
-        / f"{model_name}.csv"
-    )
-
-    shutil.move(
-        source_csv,
-        destination_csv
-    )
-
-    destination_metadata = (
-        approved_folder
-        / f"{model_name}_metadata.json"
-    )
-
-    shutil.move(
-        metadata_path,
-        destination_metadata
+    pending_submissions_collection.delete_one(
+        {
+            "_id": document["_id"]
+        }
     )
 
 def reject_submission(model_name):
 
-    submissions_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-        / "submissions"
+    document = pending_submissions_collection.find_one(
+        {
+            "metadata.model_name": model_name
+        }
     )
 
-    rejected_folder = (
-        Path(__file__).parent.parent
-        / "benchmark_data"
-        / "rejected_submissions"
-    )
-
-    rejected_folder.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    metadata_path = (
-        submissions_folder
-        / f"{model_name}_metadata.json"
-    )
-
-    with open(metadata_path, "r") as f:
-        metadata = json.load(f)
-
-    metadata["status"] = "rejected"
-
-    with open(metadata_path, "w") as f:
-        json.dump(
-            metadata,
-            f,
-            indent=4
+    if document is None:
+        raise ValueError(
+            f"Submission '{model_name}' not found."
         )
 
-    source_csv = (
-        submissions_folder
-        / f"{model_name}.csv"
+    document["metadata"]["status"] = "rejected"
+
+    rejected_submissions_collection.insert_one(
+        document
     )
 
-    destination_csv = (
-        rejected_folder
-        / f"{model_name}.csv"
+    pending_submissions_collection.delete_one(
+        {
+            "_id": document["_id"]
+        }
     )
 
-    shutil.move(
-        source_csv,
-        destination_csv
+def upload_benchmark(
+    benchmark_name,
+    csv_path
+):
+
+    csv_path = csv_path.strip('"')
+
+    if not csv_path.lower().endswith(".csv"):
+        csv_path += ".csv"
+
+    benchmark_df = pd.read_csv(
+        csv_path,
+        sep=","
     )
 
-    destination_metadata = (
-        rejected_folder
-        / f"{model_name}_metadata.json"
+    if len(benchmark_df.columns) == 1:
+        raise ValueError(
+            "Invalid CSV format. Benchmarks must use ',' as separator."
+        )
+
+    document = {
+
+        "benchmark_name": benchmark_name,
+
+        "data": benchmark_df.to_dict(
+            "records"
+        )
+
+    }
+
+    benchmarks_collection.delete_many(
+        {
+            "benchmark_name": benchmark_name
+        }
     )
 
-    shutil.move(
-        metadata_path,
-        destination_metadata
+    benchmarks_collection.insert_one(
+        document
     )
-

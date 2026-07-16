@@ -19,6 +19,13 @@ client = MongoClient(MONGO_URI)
 db = client.muscle_ultrasound
 collection = db.datasets
 
+# Benchmarks database
+benchmark_db = client.benchmarks
+benchmarks_collections = benchmark_db.benchmarks
+pending_submissions_collection = benchmark_db.review_pending_submissions
+approved_submissions_collection = benchmark_db.approved_submissions
+rejected_submissions_collection = benchmark_db.rejected_submissions
+
 # Example data
 dictionary = [
     {
