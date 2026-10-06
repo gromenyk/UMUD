@@ -648,39 +648,10 @@ elif selected_tab == "Benchmarks":
             - Muscle Thickness (MT)
             - Pennation Angle (PA)
 
-            ### Analysis methodology
-            The images were manually analysed using imageJ (FIJI). For this, 3 straight lines were used to assess muscle thickness at a left, middle and right location in the images, 3 segmented
-            lines were used to asses 3 fascicles, and 3 angles were used to assess 3 pennation angles (not the same as for the fascicles). Of all parameters, the mean was calculated
-            which represented the final estimate. This methodology was kept constant between all six expert raters. 
-
-            ### Dataset description
-            The UMUD benchmark muscle architecture dataset contains 35 muscle architectural images. 
-            Muscles included in this set are the gastrocnemius medialis, the soleus and the vastus lateralis. 
-            The images were acquired by four different devices: Hitachi Aloka Alpha-10, Telemed Echo Blaster 128, Philips HD11 and Telemed ArtUs EXT-1H.
-            The dataset contains images from both, young and healthy males and females. (For examples on older invidiuals please see the annotated datasets.) 
-
-            ### Performance metrics
-            The benchmark evaluates model performance by comparing the predicted measurements with the expert reference values.
-
-            - **Mean Absolute Error (MAE):**
-            The average absolute difference between the model predictions and the expert reference values. Lower values indicate better accuracy.
-
-            - **Intraclass Correlation Coefficient (ICC):**
-            Measures the agreement between the model predictions and the expert reference values. ICC values range from 0 to 1, where higher values indicate better agreement.
-
-            - **Coefficient of Variation (CV):**
-            The standard deviation of the prediction differences, normalized by the mean reference value and expressed as a percentage. Lower values indicate more consistent predictions.
-
-            - **Bias:**
-            The mean signed difference between the model predictions and the expert reference values. Positive values indicate systematic overestimation, whereas negative values indicate systematic underestimation.
             """
+            )
 
-            ### 
-
-
-        )
-
-        # -----------------------------
+            # -----------------------------
         # Global Benchmark Summary
         # -----------------------------
 
@@ -959,26 +930,21 @@ elif selected_tab == "Benchmarks":
 
                     st.success("Thank you for your submission. ")
 
+
             st.markdown("---")
 
-    if benchmark_option == "Muscle Architecture (Video)":
-
         st.markdown(
-            """
-            ### Muscle Architecture Benchmark
+        """
+            ### Analysis methodology
+            The images were manually analysed using imageJ (FIJI). For this, 3 straight lines were used to assess muscle thickness at a left, middle and right location in the images, 3 segmented
+            lines were used to asses 3 fascicles, and 3 angles were used to assess 3 pennation angles (not the same as for the fascicles). Of all parameters, the mean was calculated
+            which represented the final estimate. This methodology was kept constant between all six expert raters. 
 
-            This benchmark evaluates:
-            - Fascicle Length (FL)
-            - Pennation Angle (PA)
-
-            #### Analysis Methodology
-
-            The video frames were manually analysed using a custom Matlab script. For this, The fascicles and pennation angles were drawn until the aponeurosis intersections. The resulting value represented the final estimate for the fascicle length and pennation angle. This methodology was kept constant between all three expert raters. Only every second frame whas analysed, beginning with frame 0. Every other frame was interpolated as the mean between two subsequent manual analysis frames. 
-
-            #### Dataset description
-            The UMUD benchmark GM architecture calf raise dataset contains 167 architectural images from the muscle belly of the gastrocnemius medialis during a calf raise exercise. 
-            The video was acquired using a Telemed ultrasound device. The video was acquired in a healthy male. Both, the single frames as well as the video is contained in the dataset. 
-            This dataset can be used to test analysis algorithms evaluating dynamic muscle behaviour.
+            ### Dataset description
+            The UMUD benchmark muscle architecture dataset contains 35 muscle architectural images. 
+            Muscles included in this set are the gastrocnemius medialis, the soleus and the vastus lateralis. 
+            The images were acquired by four different devices: Hitachi Aloka Alpha-10, Telemed Echo Blaster 128, Philips HD11 and Telemed ArtUs EXT-1H.
+            The dataset contains images from both, young and healthy males and females. (For examples on older invidiuals please see the annotated datasets.) 
 
             ### Performance metrics
             The benchmark evaluates model performance by comparing the predicted measurements with the expert reference values.
@@ -994,6 +960,20 @@ elif selected_tab == "Benchmarks":
 
             - **Bias:**
             The mean signed difference between the model predictions and the expert reference values. Positive values indicate systematic overestimation, whereas negative values indicate systematic underestimation.
+        """
+        )
+
+    if benchmark_option == "Muscle Architecture (Video)":
+
+        st.markdown(
+            """
+            ### Muscle Architecture Benchmark
+
+            This benchmark evaluates:
+            - Fascicle Length (FL)
+            - Pennation Angle (PA)
+            )
+
             """
         )
 
@@ -1237,7 +1217,36 @@ elif selected_tab == "Benchmarks":
 
                     st.success("Thank you for your submission. ")
 
-            st.markdown("---")
+                st.markdown("---")
+
+        st.markdown(
+        """
+        #### Analysis Methodology
+
+        The video frames were manually analysed using a custom Matlab script. For this, The fascicles and pennation angles were drawn until the aponeurosis intersections. The resulting value represented the final estimate for the fascicle length and pennation angle. This methodology was kept constant between all three expert raters. Only every second frame whas analysed, beginning with frame 0. Every other frame was interpolated as the mean between two subsequent manual analysis frames. 
+
+        #### Dataset description
+        The UMUD benchmark GM architecture calf raise dataset contains 167 architectural images from the muscle belly of the gastrocnemius medialis during a calf raise exercise. 
+        The video was acquired using a Telemed ultrasound device. The video was acquired in a healthy male. Both, the single frames as well as the video is contained in the dataset. 
+        This dataset can be used to test analysis algorithms evaluating dynamic muscle behaviour.
+
+        ### Performance metrics
+        The benchmark evaluates model performance by comparing the predicted measurements with the expert reference values.
+
+        - **Mean Absolute Error (MAE):**
+        The average absolute difference between the model predictions and the expert reference values. Lower values indicate better accuracy.
+
+        - **Intraclass Correlation Coefficient (ICC):**
+        Measures the agreement between the model predictions and the expert reference values. ICC values range from 0 to 1, where higher values indicate better agreement.
+
+        - **Coefficient of Variation (CV):**
+        The standard deviation of the prediction differences, normalized by the mean reference value and expressed as a percentage. Lower values indicate more consistent predictions.
+
+        - **Bias:**
+        The mean signed difference between the model predictions and the expert reference values. Positive values indicate systematic overestimation, whereas negative values indicate systematic underestimation.
+        """
+        )
+     
 
     if benchmark_option == "ACSA Quantification":
 
@@ -1249,31 +1258,8 @@ elif selected_tab == "Benchmarks":
             - Anatomical Cross Section Area (ACSA)
             - Echo Intensity (EI)
 
-            ### Analysis methodology
-            The images were manually analysed using imageJ (FIJI). For this, the polygon tool was selected and the area of the muscle was drawn. The inner border of the rectus femoris
-            was followd until the whole anatomical cross-sectional area was outlines. The resulting value represented the final estimate for the image. This methodology was kept constant between all six expert raters. 
-
-            ### Dataset description
-            The UMUD benchmark RF ACSA dataset contains 30 muscle anatomical cross-sectional area images of the rectus femoris. 
-            The images were acquired by three different devices: Siemens Acuson Juniper, Esaote MyLab 70 and Aixplorer Ultimate.
-            The dataset contains images from both, young and healthy males and females.
-
-            ### Performance metrics
-            The benchmark evaluates model performance by comparing the predicted measurements with the expert reference values.
-
-            - **Mean Absolute Error (MAE):**
-            The average absolute difference between the model predictions and the expert reference values. Lower values indicate better accuracy.
-
-            - **Intraclass Correlation Coefficient (ICC):**
-            Measures the agreement between the model predictions and the expert reference values. ICC values range from 0 to 1, where higher values indicate better agreement.
-
-            - **Coefficient of Variation (CV):**
-            The standard deviation of the prediction differences, normalized by the mean reference value and expressed as a percentage. Lower values indicate more consistent predictions.
-
-            - **Bias:**
-            The mean signed difference between the model predictions and the expert reference values. Positive values indicate systematic overestimation, whereas negative values indicate systematic underestimation.
             """
-        )
+            )
 
         # -----------------------------
         # Global Benchmark Summary
@@ -1508,6 +1494,36 @@ elif selected_tab == "Benchmarks":
                     st.success("Thank you for your submission. ")
 
             st.markdown("---")
+
+        st.markdown(
+            """
+            ### Analysis methodology
+            The images were manually analysed using imageJ (FIJI). For this, the polygon tool was selected and the area of the muscle was drawn. The inner border of the rectus femoris
+            was followd until the whole anatomical cross-sectional area was outlines. The resulting value represented the final estimate for the image. This methodology was kept constant between all six expert raters. 
+
+            ### Dataset description
+            The UMUD benchmark RF ACSA dataset contains 30 muscle anatomical cross-sectional area images of the rectus femoris. 
+            The images were acquired by three different devices: Siemens Acuson Juniper, Esaote MyLab 70 and Aixplorer Ultimate.
+            The dataset contains images from both, young and healthy males and females.
+
+            ### Performance metrics
+            The benchmark evaluates model performance by comparing the predicted measurements with the expert reference values.
+
+            - **Mean Absolute Error (MAE):**
+            The average absolute difference between the model predictions and the expert reference values. Lower values indicate better accuracy.
+
+            - **Intraclass Correlation Coefficient (ICC):**
+            Measures the agreement between the model predictions and the expert reference values. ICC values range from 0 to 1, where higher values indicate better agreement.
+
+            - **Coefficient of Variation (CV):**
+            The standard deviation of the prediction differences, normalized by the mean reference value and expressed as a percentage. Lower values indicate more consistent predictions.
+
+            - **Bias:**
+            The mean signed difference between the model predictions and the expert reference values. Positive values indicate systematic overestimation, whereas negative values indicate systematic underestimation.
+            """
+            )
+
+    
 
     # with st.expander("**🤗 Algorithm Training Metrics**"):
 
